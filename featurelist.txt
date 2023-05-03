@@ -1,0 +1,45 @@
+stats:
+  hp - hitpoints
+  ph. attack - physical attack power
+  ph. def - physical defense
+  m. attack - magick attack
+  m. def - magick defense
+  penetration - reduce enemy defense. ie for guns or arty
+  attacks - number of attacks. big monster dude gets more
+  morale - save vs morale damage
+  moralepool - contribution to the morale pool
+  size - size of the creature, determines max melee parings
+Flags:
+  melee - good at melee
+    melee combat is half str if no this flag
+  range - can do range
+  healer - heals troops for m. attack
+
+
+  each soldier has hp, attack, defense, and number of attacks
+  each archer also has ranged attack
+  mages have ranged, do magick damage
+  arty is ranged, damage penetration, multiple attacks (to simulate blast size)
+  info for each type of soldier is in a json or smth
+
+armies are made up of regiments
+regiments are made up of lines
+lines are made up of soldiers.
+
+only the front line of the front regiment can engage in melee combat
+each soldier gets an action. this can be a spell, ranged attack, or melee combat
+actions happen simultaneously for each line in order from the front.
+
+In melee, the front lines do combat. Each soldier is paired to another soldier(s), in proportion to the relative size of the lines.
+  The max soldiers per soldier is 3 times the outnumberd soldier's size.
+
+In ranged, the attack is made on a random soldier in a random line. Front lines are more likely to be targeted.
+
+Each death requires adjacent soldiers to make a morale save, if failed that will decrement the total moralepool. at 0, the regiment will get a malus. at -50%, the flee
+
+
+
+
+There are a number of user actions to do during the simulation.
+User actions:
+  go forward n steps
