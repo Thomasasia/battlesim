@@ -53,3 +53,6 @@ User actions:
   kill specific soldiers
   add specific soldiers
   list troops ( maybe get some cool ascii?)
+  one turn advantage
+  reposition regiments
+  special attack (one regiment vs another)
