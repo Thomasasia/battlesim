@@ -1,10 +1,12 @@
 stats:
   hp - hitpoints
+  ascii - ascii character
   ph. attack - physical attack power
   ph. def - physical defense
   m. attack - magick attack
   m. def - magick defense
   penetration - reduce enemy defense. ie for guns or arty
+  aoe - aoe level for ranged attacks
   attacks - number of attacks. big monster dude gets more
   morale - save vs morale damage
   moralepool - contribution to the morale pool
@@ -19,7 +21,7 @@ Flags:
   each soldier has hp, attack, defense, and number of attacks
   each archer also has ranged attack
   mages have ranged, do magick damage
-  arty is ranged, damage penetration, multiple attacks (to simulate blast size)
+  arty is ranged, damage penetration, aoe
   info for each type of soldier is in a json or smth
 
 armies are made up of regiments
@@ -43,3 +45,11 @@ Each death requires adjacent soldiers to make a morale save, if failed that will
 There are a number of user actions to do during the simulation.
 User actions:
   go forward n steps
+  kill n soldiers in a regiment
+    asks for line, or is random
+  force ranged
+  add/minus to morale
+  change numer of lines in regiment
+  kill specific soldiers
+  add specific soldiers
+  list troops ( maybe get some cool ascii?)
