@@ -247,8 +247,10 @@ class Army:
         
 
     def purge_dead(self):
+        losses = []
         for reg in self.regiments:
-            purge_dead(reg)
+            losses += purge_dead(reg)
+        return losses
     def refresh_attacks(self):
         for reg in self.regiments:
             reg.refresh_attacks()
@@ -464,15 +466,17 @@ def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_pu
     reg2_soldiers_count = len(reg2.soldiers)
 
     # now we must remove dead soldiers, and apply morale damage
+    losses = []
     if dead_purging:
-        purge_dead(reg1)
-        purge_dead(reg2)
+        losses = [purge_dead(reg1), purge_dead(reg2)]
 
-    if reporting:
-        print(reg1.name + " lost " + str(reg1_soldiers_count - len(reg1.soldiers)) + " soldiers")
-        print(reg2.name + " lost " + str(reg2_soldiers_count - len(reg2.soldiers)) + " soldiers")
+    #if reporting:
+    #    print(reg1.name + " lost " + str(reg1_soldiers_count - len(reg1.soldiers)) + " soldiers")
+    #    print(reg2.name + " lost " + str(reg2_soldiers_count - len(reg2.soldiers)) + " soldiers")
+    return losses
 
 def purge_dead(reg, morale_damage = True):
+    losses = []
     for rank in reg.rank:
         purges = []
         for i in range(len(rank)):
@@ -493,8 +497,11 @@ def purge_dead(reg, morale_damage = True):
     for soldier in reg.soldiers:
         if soldier.hitpoints <= 0:
             if soldier.marked:
-                print(soldier.name + " Dies!")
+                #print(soldier.name + " Dies!")
+                pass
+            losses.append(soldier)
             reg.soldiers.remove(soldier)
+    return losses
 
 def ranged_attack(attacker, defender_index, defender_rank, defender_regiment):
     attack_power = 0
@@ -549,7 +556,7 @@ def army_fight(army1, army2, reporting = True):
     army1.refresh_attacks()
     army2.refresh_attacks()
     fights = match_soldeirs(army1.regiments[0].rank[0], army2.regiments[0].rank[0])
-    calculate_melee_fights(army1.regiments[0], army2.regiments[0], fights, reporting = True)
+    losses = calculate_melee_fights(army1.regiments[0], army2.regiments[0], fights, reporting = True)
 
     def breakthrough_loop(a1, a2):
         # loop for multiple breakthroughs
@@ -571,27 +578,36 @@ def army_fight(army1, army2, reporting = True):
             
             if breakthrough > 0:
                 armies = [a1, a2]
-                if breakthrough == 1:
-                    print(a2.name + " Breaks through " + a1.name + "'s Front line, and continue forward.")
-                elif breakthrough == 2:
-                        print(a1.name + " Breaks through " + a2.name + "'s Front line, and continue forward.")
-                elif breakthrough == 3:
-                        print(a1.name + "'s and " + a2.name + "'s frontlines both dissolve, and the fresh second lines charge forward.")
+                if reporting:
+                    if breakthrough == 1:
+                        print(a2.name + " Breaks through " + a1.name + "'s Front line, and continues forward.")
+                    elif breakthrough == 2:
+                            print(a1.name + " Breaks through " + a2.name + "'s Front line, and continues forward.")
+                    elif breakthrough == 3:
+                            print(a1.name + "'s and " + a2.name + "'s frontlines both dissolve, and the fresh second lines charge forward.")
 
                 
                 fights = match_soldeirs(a1.regiments[0].rank[0], a2.regiments[0].rank[0])
-                calculate_melee_fights(a1.regiments[0], a2.regiments[0], fights, reporting = reporting, attacks_refreshment = False)
+                losses += calculate_melee_fights(a1.regiments[0], a2.regiments[0], fights, reporting = reporting, attacks_refreshment = False)
             else:
                 break
         
     
     breakthrough_loop(army1, army2)
 
+    print("Melee losses: ")
+    print("\t" + army1.name + " loses " + str(len(losses[0])))
+    print("\t" + army2.name + " losses " + str(len(losses[1])))
+    
     # ranged attacks
     army_make_ranged_attacks(army1, army2)
     army_make_ranged_attacks(army2, army1)
-    army1.purge_dead()
-    army2.purge_dead()
+
+    ranged_losses = [army1.purge_dead(), army2.purge_dead()]
+
+    print("Ranged losses: ")
+    print("\t" + army1.name + " loses " + str(len(ranged_losses[0])))
+    print("\t" + army2.name + " losses " + str(len(ranged_losses[1])))
     
 
 
@@ -607,7 +623,7 @@ for i in range(10):
 
 artillery = []
 for i in range(1):
-    artillery.append(Soldier("Artillery Cannon", 'C', 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, True, True, False, True))
+    artillery.append(Soldier("Artillery Cannon", 'C', 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, True, True, False, False))
 
 
 reg1 = Regiment("Target Practice", soldiers1, 5)
