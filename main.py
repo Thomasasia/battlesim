@@ -182,6 +182,9 @@ class Army:
         #print(regiments)
         #print(regiments[0].rank)
         #print()
+
+    # add option to invert the display
+    # center the army lines
     def print_army(self):
         for regiment in self.regiments:
             print()
@@ -607,6 +610,8 @@ def army_fight(army1, army2, reporting = True):
     print("Ranged losses: ")
     print("\t" + army1.name + " loses " + str(len(ranged_losses[0])))
     print("\t" + army2.name + " losses " + str(len(ranged_losses[1])))
+
+    # here is where the healing goes
     
 soldiers1 = []
 for i in range(100):
