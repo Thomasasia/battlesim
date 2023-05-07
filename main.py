@@ -4,17 +4,20 @@ import random
 def random_bytes(n):
     return random.getrandbits(8 * n).to_bytes(n, 'big')
 
-def random_roll(min_roll = 1, max_roll = 3):
-    return (int.from_bytes(random_bytes(1), "big") % max_roll) + min_roll
+def random_roll(min_roll = 1, max_roll = 3, byte_count = 1):
+    if min_roll == max_roll:
+        return min_roll
+    else:
+        return (int.from_bytes(random_bytes(byte_count), "big") % max_roll) + min_roll
 
-def random_roll_f_dice(f, max_roll = 3):
+def random_roll_f_dice(f, max_roll = 3, min_roll = 1):
     total_roll = 0
     int_val = int(f)
     f_val = f % int_val
     for i in range(int_val):
-        total_roll += random_roll(max_roll = max_roll)
+        total_roll += random_roll(min_roll = min_roll, max_roll = max_roll)
     if f_val > 0:
-        total_roll += random_roll(max_roll = max_roll) * f_val
+        total_roll += random_roll(min_roll = min_roll, max_roll = max_roll) * f_val
     return total_roll
 
 class Soldier:
@@ -76,7 +79,8 @@ class Regiment:
     #num_ranks = 1
     #rank = [] # all ranks
     #soldiers = [] # all soldiers
-    def __init__(self, soldiers, num_ranks):
+    def __init__(self, name, soldiers, num_ranks):
+        self.name = name
         self.num_ranks = num_ranks
         self.soldiers = soldiers
         self.rank = []
@@ -90,10 +94,62 @@ class Regiment:
             self.max_morale += soldier.morale_pool_contribution
         self.morale_pool = self.max_morale
 
+    def refresh_attacks(self):
+        for line in self.rank:
+            for soldier in line:
+                soldier.attacks_left = soldier.attacks
+
     def swap_ranks(self, pos1, pos2):
         temp = self.rank[pos1]
         self.rank[pos1] = self.rank[pos2]
         self.rank[pos2] = temp
+
+    def index_from_size(self,r, size):
+        sizecounter = 0
+        for i in range(len(self.rank[r])):
+            sizecounter += self.rank[r][i].size
+            if sizecounter >= size:
+                return i
+    def size_from_index(self,r, index):
+        size_counter = 0
+        for i in range(index+1):
+            size_counter += self.rank[r][i].size
+        return size_counter
+
+    def get_adjacent(self, rank_index, index, distance):
+        sizemap = []
+        for r in self.rank:
+            maxsize = 0
+            for soldier in r:
+                maxsize += soldier.size
+            sizemap.append(maxsize)
+        # we need to calculate midsize for the size, counting from the middle instead of the edges
+        def size_to_midsize(size, maxsize):
+            return size - (maxsize / 2)
+        def midsize_to_size(size, maxsize):
+            return size + (maxsize / 2)
+        
+        center = size_to_midsize(self.size_from_index(rank_index, index), sizemap[rank_index])
+        min_rank_search = max(0, rank_index - distance)
+        max_rank_search = min(len(self.rank)-1, rank_index + distance)
+
+        adjacent_soldiers = []
+        for i in range(min_rank_search, max_rank_search + 1, 1):
+            
+            for s in range(int(center - distance), int(center + distance + 1), 1):
+                soldier = self.index_from_size(i, midsize_to_size(s, sizemap[i]))
+                if soldier == None:
+                    continue
+                soldier = self.rank[i][soldier]
+                if len(adjacent_soldiers)==0:
+                    adjacent_soldiers.append(soldier)
+                elif adjacent_soldiers[-1] != soldier:
+                    adjacent_soldiers.append(soldier)
+        return adjacent_soldiers
+
+
+
+
 
     def sort_soldiers(self):
         self.rank.clear()
@@ -138,8 +194,9 @@ class Regiment:
 
 class Army:
     #regiments = []
-    def __init__(self, regiments):
+    def __init__(self, name, regiments):
         self.regiments = regiments
+        self.name = name
         #print("army init:")
         #print(regiments)
         #print(regiments[0].rank)
@@ -151,6 +208,51 @@ class Army:
                 for soldier in rank:
                     print(soldier.character, end='')
                 print()
+    
+    # random soldier, using size instead of index inside of a line
+    def get_weighed_random_soldier(self):
+        regroll = []
+        for i in range(len(self.regiments)):
+            # closer regiments to the front are much more likely to be hit
+            roll = random_roll_f_dice( len(self.regiments) - i   )
+            regroll.append(roll)
+        
+        selected_regiment_index = 0
+        selected_regiment_index_roll = 0
+        for i in range(len(regroll)):
+            if selected_regiment_index_roll < regroll[i]:
+                selected_regiment_index_roll = regroll[i]
+                selected_regiment_index = i
+        
+        ranksize = len(self.regiments[selected_regiment_index].rank) -1
+        rank_index = random_roll(min_roll = 0, max_roll = ranksize, byte_count = ranksize + 1)
+        rank = self.regiments[selected_regiment_index].rank[rank_index]
+
+        maxsize = 0
+        for soldier in rank:
+            maxsize += soldier.size
+        
+        size_selection = random_roll(min_roll = 1, max_roll = maxsize, byte_count = 8)
+
+        soldier_index = 0
+        size_counter = 0
+        for i in range(len(rank)):
+            size_counter += rank[i].size
+            if size_counter >= size_selection:
+                soldier_index = i
+                break
+
+        return [soldier_index, rank_index, selected_regiment_index]
+
+        
+
+    def purge_dead(self):
+        for reg in self.regiments:
+            purge_dead(reg)
+    def refresh_attacks(self):
+        for reg in self.regiments:
+            reg.refresh_attacks()
+
 
 def match_soldeirs(line1, line2, n=3):
     bigline = []
@@ -298,19 +400,8 @@ def melee_attack(attacker, defender, attacker_mod = 1.0, defender_mod = 1.0):
         attacker_attack_score = melee_penalty(attacker_attack_score, attacker) * attacker_mod
         defender_defense_score = melee_penalty(defender_defense_score, defender) * defender_mod
 
-        def score_roll(battle_score, dice_size = 3):
-            iscore = int(battle_score)
-            
-            fscore = battle_score % iscore
-            total_score = 0
-            for i in range(iscore):
-                total_score += random_roll(max_roll = dice_size)
-            if fscore > 0:
-                total_score += random_roll(max_roll = dice_size) * fscore
-            return total_score
-        
-        attack_roll = score_roll(attacker_attack_score)
-        defense_roll = score_roll(attacker_attack_score)
+        attack_roll = random_roll_f_dice(attacker_attack_score, max_roll = 3)
+        defense_roll = random_roll_f_dice(attacker_attack_score, max_roll = 3, min_roll = 0)
 
         delta_hp = attack_roll - max( defense_roll - attacker.penetration ,0)
         defender.hitpoints -= max(delta_hp, 0)
@@ -321,9 +412,14 @@ def melee_attack(attacker, defender, attacker_mod = 1.0, defender_mod = 1.0):
             print("\t" + defender.name + " defense strength : " + str(defender_defense_score))
             print("\t" + defender.name + " defense roll     : " + str(defense_roll))
             print("\tAttacker penetration : " + str(attacker.penetration))
-            print("\t" + defender.name + " takes " + str(max(delta_hp, 0)) + " damage!")
+            mortal = ""
+            if defender.hitpoints <= 0:
+                mortal = "MORTAL WOUND!"
+            print("\t" + defender.name + " takes " + str(max(delta_hp, 0)) + " damage! " + mortal)
 
-def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_purging = True, reporting = False):
+
+
+def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_purging = True, reporting = False, attacks_refreshment = True):
     bigreg = []
     smallreg = []
     bigmod = 1.0
@@ -340,11 +436,14 @@ def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_pu
         smallmod = reg1mod
 
     def calculate_morale_mod(reg):
+        if isinstance(reg,float):
+            raise Exception("invalid regiment, got a number")
         if reg.morale_pool >= 0:
             return 1.0
         else:
             neghalf = reg.max_morale / (-2)
-            return 0.8 - (0.3 (reg.morale_pool / neghalf))
+            val = 0.8 - (0.3 (reg.morale_pool / neghalf))
+            return val
 
     bigmod *= calculate_morale_mod(bigreg)
     smallmod *= calculate_morale_mod(smallreg)
@@ -353,8 +452,9 @@ def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_pu
         for soldier in reg.rank[0]:
             soldier.attacks_left = soldier.attacks
 
-    reset_attacks(reg1)
-    reset_attacks(reg2)
+    if attacks_refreshment:
+        reset_attacks(reg1)
+        reset_attacks(reg2)
 
     for fight in fights:
         melee_attack(fight[0], fight[1], bigmod, smallmod)
@@ -369,8 +469,8 @@ def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_pu
         purge_dead(reg2)
 
     if reporting:
-        print("Regiment 1 lost " + str(reg1_soldiers_count - len(reg1.soldiers)) + " soldiers")
-        print("Regiment 2 lost " + str(reg2_soldiers_count - len(reg2.soldiers)) + " soldiers")
+        print(reg1.name + " lost " + str(reg1_soldiers_count - len(reg1.soldiers)) + " soldiers")
+        print(reg2.name + " lost " + str(reg2_soldiers_count - len(reg2.soldiers)) + " soldiers")
 
 def purge_dead(reg, morale_damage = True):
     for rank in reg.rank:
@@ -392,42 +492,143 @@ def purge_dead(reg, morale_damage = True):
             rank.remove(soldier)
     for soldier in reg.soldiers:
         if soldier.hitpoints <= 0:
+            if soldier.marked:
+                print(soldier.name + " Dies!")
             reg.soldiers.remove(soldier)
 
+def ranged_attack(attacker, defender_index, defender_rank, defender_regiment):
+    attack_power = 0
+    attack_type = ''
+    if attacker.attack_m >= attacker.attack_ph:
+        attack_type = 'm'
+        attack_power = attacker.attack_m
+    else:
+        attack_type = 'p'
+        attack_power = attacker.attack_ph
+    
+    
+
+    def defend_against_attack(attack, pen, defender):
+        defense_power = 0
+        if attack_type == 'm':
+            defense_power = defender.defense_m
+        else:
+            defense_power = defender.defense_ph
+        
+        defense_roll = random_roll_f_dice(defense_power) - attacker.penetration
+        defender.hitpoints -= max(attack - defense_roll, 0)
+        if attacker.marked or defender.marked:
+            print(attacker.name + " shoots at " + defender.name + " for " + str(max(attack - defense_roll, 0)) + " damage!")
+    
+    if attacker.aoe < 1:
+        attack_roll = random_roll_f_dice(attack_power)
+        defend_against_attack(attack_roll, attacker.penetration, defender_regiment.rank[defender_rank][defender_index])
+    elif attacker.aoe >= 1:
+        adjacent_defenders = defender_regiment.get_adjacent(defender_rank, defender_index, attacker.aoe)
+
+        for defender in adjacent_defenders:
+            defend_against_attack(random_roll_f_dice(attack_power), attacker.penetration, defender)
+    
+
+
+
+
+def regiment_make_ranged_attacks(regiment, army2):
+    for line in regiment.rank:
+        for soldier in line:
+            if soldier.ranged == True:
+                while soldier.attacks_left > 0:
+                    defender = army2.get_weighed_random_soldier()
+                    ranged_attack(soldier, defender[0], defender[1], army2.regiments[defender[2]])
+                    soldier.attacks_left -= 1
+def army_make_ranged_attacks(army1, army2):
+    for reg in army1.regiments:
+        regiment_make_ranged_attacks(reg, army2)
+
+def army_fight(army1, army2, reporting = True):
+    army1.refresh_attacks()
+    army2.refresh_attacks()
+    fights = match_soldeirs(army1.regiments[0].rank[0], army2.regiments[0].rank[0])
+    calculate_melee_fights(army1.regiments[0], army2.regiments[0], fights, reporting = True)
+
+    def breakthrough_loop(a1, a2):
+        # loop for multiple breakthroughs
+        while True:
+            breakthrough = 0
+            if len(a1.regiments[0].rank[0]) == 0:
+                a1.regiments[0].rank.pop(0)
+                breakthrough += 1
+            elif len(a2.regiments[0].rank[0]) == 0:
+                a2.regiments[0].rank.pop(0)
+                breakthrough += 2
+            
+            if len(a1.regiments[0].soldiers) == 0:
+                a1.regiments.pop(0)
+                break
+            if len(a2.regiments[0].soldiers) == 0:
+                a2.regiments.pop(0)
+                break
+            
+            if breakthrough > 0:
+                armies = [a1, a2]
+                if breakthrough == 1:
+                    print(a2.name + " Breaks through " + a1.name + "'s Front line, and continue forward.")
+                elif breakthrough == 2:
+                        print(a1.name + " Breaks through " + a2.name + "'s Front line, and continue forward.")
+                elif breakthrough == 3:
+                        print(a1.name + "'s and " + a2.name + "'s frontlines both dissolve, and the fresh second lines charge forward.")
+
+                
+                fights = match_soldeirs(a1.regiments[0].rank[0], a2.regiments[0].rank[0])
+                calculate_melee_fights(a1.regiments[0], a2.regiments[0], fights, reporting = reporting, attacks_refreshment = False)
+            else:
+                break
+        
+    
+    breakthrough_loop(army1, army2)
+
+    # ranged attacks
+    army_make_ranged_attacks(army1, army2)
+    army_make_ranged_attacks(army2, army1)
+    army1.purge_dead()
+    army2.purge_dead()
+    
 
 
 
 
 soldiers1 = []
-for i in range(3):
-    soldiers1.append(Soldier("Outnumbered Dude", 'A', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, True))
+for i in range(100):
+    soldiers1.append(Soldier("Target Practice", 'T', 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 3, True, False, False, False))
 
 soldiers2 = []
 for i in range(10):
-    soldiers2.append(Soldier("Confident Dude", 'A', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, True))
+    soldiers2.append(Soldier("Defender", 'D', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, False))
+
+artillery = []
+for i in range(1):
+    artillery.append(Soldier("Artillery Cannon", 'C', 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, True, True, False, True))
 
 
-reg1 = Regiment(soldiers1, 1)
-reg2 = Regiment(soldiers2, 1)
+reg1 = Regiment("Target Practice", soldiers1, 5)
+reg2 = Regiment("Defenders", soldiers2, 1)
+artyreg = Regiment("Artillery Regiment", artillery, 1)
 
-
-army1 = Army([reg1])
-army2 = Army([reg2])
-
-army1.print_army()
-army2.print_army()
-
-fights = match_soldeirs(army1.regiments[0].rank[0], army2.regiments[0].rank[0])
-calculate_melee_fights(army1.regiments[0], army2.regiments[0], fights, reporting = True)
-
+army1 = Army("Outnumbered Dude Army",[reg1])
+army2 = Army("Confident Dude Army",[reg2,artyreg])
 
 army1.print_army()
 army2.print_army()
 
+army_fight(army1, army2)
 
-# next, simulate the fights. each soldier should fight n times, where n is the number of attacks they get.
-# only attack foes with health
-# update their health. Afterwards, remove dead soldiers from the line and regiment.
+print("army1")
+army1.print_army()
+print("\narmy2")
+army2.print_army()
+
+
+# remove empty lines
 # next should be ranged attacks, plus aoe
 # then heal spells.
 # then commands
