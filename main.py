@@ -12,6 +12,8 @@ def random_roll(min_roll = 1, max_roll = 3, byte_count = 1):
 
 def random_roll_f_dice(f, max_roll = 3, min_roll = 1):
     total_roll = 0
+    if f == 0:
+        return 0
     int_val = int(f)
     f_val = f % int_val
     for i in range(int_val):
@@ -21,28 +23,7 @@ def random_roll_f_dice(f, max_roll = 3, min_roll = 1):
     return total_roll
 
 class Soldier:
-    #name = "default"
-    #character = "d"
-    #maxhp = 1
-    #hitpoints = 1
-    #attack_ph = 1
-    #attack_m = 0
-    #defense_ph = 1
-    #defense_m = 0
-    #attacks = 1
-    #penetration = 0
-    #aoe = 0
-    #morale = 1
-    #morale_pool_contribution = 1
-    #size = 1
-
-    #melee = True
-    #ranged = False
-    #healer = False
-    #marked = False # determines if the console will output messages from this soldier especially. ie for player characters.
-
-
-    def __init__(self, name, character, maxhp, attack_ph, attack_m, defense_ph, defense_m, attacks, penetration, aoe, morale_save, morale_pool_contribution, size, melee, ranged, healer, marked):
+    def __init__(self, name="soldier", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False):
         self.name = name
         self.character = character
         self.maxhp = maxhp
@@ -244,7 +225,11 @@ class Army:
 
         return [soldier_index, rank_index, selected_regiment_index]
 
-        
+    def check_empty(self):
+        for reg in self.regiments:
+            for soldier in reg.soldiers:
+                return False
+        return True
 
     def purge_dead(self):
         losses = []
@@ -419,8 +404,6 @@ def melee_attack(attacker, defender, attacker_mod = 1.0, defender_mod = 1.0):
                 mortal = "MORTAL WOUND!"
             print("\t" + defender.name + " takes " + str(max(delta_hp, 0)) + " damage! " + mortal)
 
-
-
 def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_purging = True, reporting = False, attacks_refreshment = True):
     bigreg = []
     smallreg = []
@@ -536,10 +519,6 @@ def ranged_attack(attacker, defender_index, defender_rank, defender_regiment):
         for defender in adjacent_defenders:
             defend_against_attack(random_roll_f_dice(attack_power), attacker.penetration, defender)
     
-
-
-
-
 def regiment_make_ranged_attacks(regiment, army2):
     for line in regiment.rank:
         for soldier in line:
@@ -548,6 +527,7 @@ def regiment_make_ranged_attacks(regiment, army2):
                     defender = army2.get_weighed_random_soldier()
                     ranged_attack(soldier, defender[0], defender[1], army2.regiments[defender[2]])
                     soldier.attacks_left -= 1
+
 def army_make_ranged_attacks(army1, army2):
     for reg in army1.regiments:
         regiment_make_ranged_attacks(reg, army2)
@@ -561,11 +541,13 @@ def army_fight(army1, army2, reporting = True):
     def breakthrough_loop(a1, a2):
         # loop for multiple breakthroughs
         while True:
+            losses[0] += army1.purge_dead()
+            losses[1] += army2.purge_dead()
             breakthrough = 0
             if len(a1.regiments[0].rank[0]) == 0:
                 a1.regiments[0].rank.pop(0)
                 breakthrough += 1
-            elif len(a2.regiments[0].rank[0]) == 0:
+            if len(a2.regiments[0].rank[0]) == 0:
                 a2.regiments[0].rank.pop(0)
                 breakthrough += 2
             
@@ -586,9 +568,26 @@ def army_fight(army1, army2, reporting = True):
                     elif breakthrough == 3:
                             print(a1.name + "'s and " + a2.name + "'s frontlines both dissolve, and the fresh second lines charge forward.")
 
-                
-                fights = match_soldeirs(a1.regiments[0].rank[0], a2.regiments[0].rank[0])
-                losses += calculate_melee_fights(a1.regiments[0], a2.regiments[0], fights, reporting = reporting, attacks_refreshment = False)
+                try:
+                    fights = match_soldeirs(a1.regiments[0].rank[0], a2.regiments[0].rank[0])
+                    l = calculate_melee_fights(a1.regiments[0], a2.regiments[0], fights, reporting = reporting, attacks_refreshment = False)
+                    losses[0] += l[0]
+                    losses[1] += l[1]
+                except:
+                    print(breakthrough)
+                    print("t1")
+                    print(a1.regiments[0])
+                    print("t2")
+                    print(a1.regiments[0].rank[0])
+                    print("t3")
+                    print(a2.regiments[0])
+                    print(a2.regiments[0].soldiers[0].hitpoints)
+                    print("t4")
+                    print(a2.regiments[0].rank[0])
+
+                    
+
+                    raise Exception("fuckshit")
             else:
                 break
         
@@ -609,13 +608,9 @@ def army_fight(army1, army2, reporting = True):
     print("\t" + army1.name + " loses " + str(len(ranged_losses[0])))
     print("\t" + army2.name + " losses " + str(len(ranged_losses[1])))
     
-
-
-
-
 soldiers1 = []
 for i in range(100):
-    soldiers1.append(Soldier("Target Practice", 'T', 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 3, True, False, False, False))
+    soldiers1.append(Soldier(name="soldier", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False))
 
 soldiers2 = []
 for i in range(10):
@@ -636,15 +631,20 @@ army2 = Army("Confident Dude Army",[reg2,artyreg])
 army1.print_army()
 army2.print_army()
 
-army_fight(army1, army2)
+round = 1
+while True:
+    print("\n---- ROUND "+str(round)+" ----\n")
+    army_fight(army1, army2)
 
-print("army1")
-army1.print_army()
-print("\narmy2")
-army2.print_army()
+    print("army1")
+    army1.print_army()
+    print("\narmy2")
+    army2.print_army()
+    input()
+    round += 1
+    if army1.check_empty() or army2.check_empty():
+        break
 
 
-# remove empty lines
-# next should be ranged attacks, plus aoe
 # then heal spells.
 # then commands
