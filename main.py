@@ -342,7 +342,8 @@ def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, purge_d
     # now we must remove dead soldiers, and apply morale damage
 
 
-def purge_dead(reg, morale_damage = True)
+def purge_dead(reg, morale_damage = True):
+    pass
 
 
 

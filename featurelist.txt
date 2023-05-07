@@ -39,6 +39,7 @@ In ranged, the attack is made on a random soldier in a random line. Front lines 
 
 Each death requires adjacent soldiers to make a morale save, if failed that will decrement the total moralepool. at 0, the regiment will get a malus. at -50%, they flee
 
+A soldier dying will reduce the morale pool by the proportion that they contribute to the max. This means that the moralepool is expected to go below zero as soldiers die, and would approach zero if all morale checks are made
 
 
 
