@@ -4,8 +4,18 @@ import random
 def random_bytes(n):
     return random.getrandbits(8 * n).to_bytes(n, 'big')
 
-def random_roll(min = 1, max = 3):
-    return (int.from_bytes(random_bytes(1), "big") % max) + min
+def random_roll(min_roll = 1, max_roll = 3):
+    return (int.from_bytes(random_bytes(1), "big") % max_roll) + min_roll
+
+def random_roll_f_dice(f, max_roll = 3):
+    total_roll = 0
+    int_val = int(f)
+    f_val = f % int_val
+    for i in range(int_val):
+        total_roll += random_roll(max_roll = max_roll)
+    if f_val > 0:
+        total_roll += random_roll(max_roll = max_roll) * f_val
+    return total_roll
 
 class Soldier:
     #name = "default"
@@ -20,7 +30,7 @@ class Soldier:
     #penetration = 0
     #aoe = 0
     #morale = 1
-    #moralepool = 1
+    #morale_pool_contribution = 1
     #size = 1
 
     #melee = True
@@ -29,7 +39,7 @@ class Soldier:
     #marked = False # determines if the console will output messages from this soldier especially. ie for player characters.
 
 
-    def __init__(self, name, character, maxhp, attack_ph, attack_m, defense_ph, defense_m, attacks, penetration, aoe, morale, moralepool, size, melee, ranged, healer, marked):
+    def __init__(self, name, character, maxhp, attack_ph, attack_m, defense_ph, defense_m, attacks, penetration, aoe, morale_save, morale_pool_contribution, size, melee, ranged, healer, marked):
         self.name = name
         self.character = character
         self.maxhp = maxhp
@@ -42,14 +52,25 @@ class Soldier:
         self.attacks_left = attacks
         self.penetration = penetration
         self.aoe = aoe
-        self.morale = morale
-        self.moralepool = moralepool
+        self.morale_save = morale_save
+        self.morale_pool_contribution = morale_pool_contribution
         self.size = size
 
         self.melee = melee
         self.ranged = ranged
         self.healer = healer
         self.marked = marked
+
+    # returns true if the morale save is successful
+    def roll_morale_save(self, ignore_death = False):
+        if not ignore_death and self.hitpoints <= 0:
+            return True
+        
+        roll = random_roll_f_dice(self.morale_save, max_roll = 3)
+        if roll > 0:
+            return True
+        else:
+            return False
 
 class Regiment:
     #num_ranks = 1
@@ -62,12 +83,12 @@ class Regiment:
         self.sort_soldiers()
         self.calculate_morale_pool()
     
-    def calculate_morale_pool():
+    def calculate_morale_pool(self):
         self.max_morale = 0
         self.morale_pool = 0
         for soldier in self.soldiers:
-            max_morale += soldier.morale_pool
-        self.morale_pool = max_morale
+            self.max_morale += soldier.morale_pool_contribution
+        self.morale_pool = self.max_morale
 
     def swap_ranks(self, pos1, pos2):
         temp = self.rank[pos1]
@@ -283,9 +304,9 @@ def melee_attack(attacker, defender, attacker_mod = 1.0, defender_mod = 1.0):
             fscore = battle_score % iscore
             total_score = 0
             for i in range(iscore):
-                total_score += random_roll(max = dice_size)
+                total_score += random_roll(max_roll = dice_size)
             if fscore > 0:
-                total_score += random_roll(max = dice_size) * fscore
+                total_score += random_roll(max_roll = dice_size) * fscore
             return total_score
         
         attack_roll = score_roll(attacker_attack_score)
@@ -301,17 +322,8 @@ def melee_attack(attacker, defender, attacker_mod = 1.0, defender_mod = 1.0):
             print("\t" + defender.name + " defense roll     : " + str(defense_roll))
             print("\tAttacker penetration : " + str(attacker.penetration))
             print("\t" + defender.name + " takes " + str(max(delta_hp, 0)) + " damage!")
-        
 
-
-        
-
-
-
-
-
-
-def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, purge_dead = True):
+def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_purging = True, reporting = False):
     bigreg = []
     smallreg = []
     bigmod = 1.0
@@ -327,6 +339,15 @@ def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, purge_d
         smallreg = reg1
         smallmod = reg1mod
 
+    def calculate_morale_mod(reg):
+        if reg.morale_pool >= 0:
+            return 1.0
+        else:
+            neghalf = reg.max_morale / (-2)
+            return 0.8 - (0.3 (reg.morale_pool / neghalf))
+
+    bigmod *= calculate_morale_mod(bigreg)
+    smallmod *= calculate_morale_mod(smallreg)
     # each soldier must be granted their attacks:
     def reset_attacks(reg):
         for soldier in reg.rank[0]:
@@ -339,11 +360,41 @@ def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, purge_d
         melee_attack(fight[0], fight[1], bigmod, smallmod)
         melee_attack(fight[1], fight[0], bigmod, smallmod)
     
-    # now we must remove dead soldiers, and apply morale damage
+    reg1_soldiers_count = len(reg1.soldiers)
+    reg2_soldiers_count = len(reg2.soldiers)
 
+    # now we must remove dead soldiers, and apply morale damage
+    if dead_purging:
+        purge_dead(reg1)
+        purge_dead(reg2)
+
+    if reporting:
+        print("Regiment 1 lost " + str(reg1_soldiers_count - len(reg1.soldiers)) + " soldiers")
+        print("Regiment 2 lost " + str(reg2_soldiers_count - len(reg2.soldiers)) + " soldiers")
 
 def purge_dead(reg, morale_damage = True):
-    pass
+    for rank in reg.rank:
+        purges = []
+        for i in range(len(rank)):
+            if rank[i].hitpoints <= 0:
+                # reduce the morale pool by their share.
+                reg.morale_pool -=  (rank[0].morale_pool_contribution / reg.max_morale) * reg.morale_pool
+                purges.append(rank[i])
+                # adjacent soldiers must make a morale save, else the morale pool is decreased
+                if i-1 >= 0:
+                    if not rank[i-1].roll_morale_save():
+                        reg.morale_pool -=1
+                if i+1 < len(rank):
+                    if not rank[i+1].roll_morale_save():
+                        reg.morale_pool -=1
+        for soldier in purges:
+            # remove dead soldiers
+            rank.remove(soldier)
+    for soldier in reg.soldiers:
+        if soldier.hitpoints <= 0:
+            reg.soldiers.remove(soldier)
+
+
 
 
 
@@ -367,7 +418,11 @@ army1.print_army()
 army2.print_army()
 
 fights = match_soldeirs(army1.regiments[0].rank[0], army2.regiments[0].rank[0])
-calculate_melee_fights(army1.regiments[0], army2.regiments[0], fights)
+calculate_melee_fights(army1.regiments[0], army2.regiments[0], fights, reporting = True)
+
+
+army1.print_army()
+army2.print_army()
 
 
 # next, simulate the fights. each soldier should fight n times, where n is the number of attacks they get.
