@@ -114,7 +114,57 @@ class Army:
                     print(soldier.character, end='')
                 print()
 
+def match_soldeirs(line1, line2, n=3):
+    bigline = []
+    smallline = []
+    if len(line1) >= len(line2):
+        bigline = line1
+        smallline = line2
+    else:
+        bigline = line2
+        smalline = line1
+    biglength
+    smalllength
+    for soldier in bigline:
+        biglength += soldier.size
+    for soldier in smallline:
+        smalllength += soldier.size
+    length_ratio = biglength / smalllength
+    
+    def size_index_to_soldier(l, s):
+        sc = 0
+        for i in range(len(l)-1):
+            sc += l[i]
+            if sc > s:
+                return i
 
+    # trim excess
+    if length_ratio > n:
+        diff = biglength - (smalllength * n)
+        purgei1 = size_index_to_soldier(bigline, diff/2) -1
+        purgei2 = size_index_to_soldier(bigline, biglength - (diff/2)) +1
+        bigline = bigline[purgei1:purgei2]
+        biglength = 0
+        for soldier in bigline:
+            biglength += soldier.size
+        length_ratio = n
+    
+    # calculate sizematch
+    bigsizesmatch = []
+    sizeeach = int(biglength/smallength)
+    sizeextra = int(biglength) % int(smallength)
+    for i in range(biglength): # initialization, with size each default
+        bigsizesmatch.append(sizeeach)
+    
+    mindex = 0
+    mid = (int(len(bigsizematch)-1/2) -1) * -1
+    while sizeextra > 0:
+        
+
+    
+
+
+    
 
 soldiers = []
 for i in range(100):
