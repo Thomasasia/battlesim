@@ -208,7 +208,12 @@ class Army:
                 selected_regiment_index_roll = regroll[i]
                 selected_regiment_index = i
         
-        ranksize = len(self.regiments[selected_regiment_index].rank) -1
+        try:
+            ranksize = len(self.regiments[selected_regiment_index].rank) -1
+        except IndexError:
+            print(self.regiments)
+            print(selected_regiment_index)
+            raise Exception("Trying to shoot at nothing")
         rank_index = random_roll(min_roll = 0, max_roll = ranksize, byte_count = ranksize + 1)
         rank = self.regiments[selected_regiment_index].rank[rank_index]
 
@@ -238,6 +243,12 @@ class Army:
         losses = []
         for reg in self.regiments:
             losses += purge_dead(reg)
+            for rank in reg.rank:
+                if len(rank) == 0:
+                    reg.rank.remove(rank)
+            if len(reg.soldiers) == 0:
+                self.regiments.remove(reg)
+
         return losses
     def refresh_attacks(self):
         for reg in self.regiments:
@@ -259,6 +270,9 @@ def match_soldeirs(line1, line2, n=3):
         biglength += soldier.size
     for soldier in smallline:
         smalllength += soldier.size
+    
+    if smalllength == 0:
+        raise Exception("Small size is zero!")
     length_ratio = biglength / smalllength
     
     # i should probably make a more efficient method. Probably a hash table. Def a hash table!!
@@ -271,6 +285,8 @@ def match_soldeirs(line1, line2, n=3):
             if sc >= s:
                 #print("size: " + str(s) + " position/index: " + str(i))
                 return i
+        return len(l) -1
+
         print("Size indexer failed~~")
         print(l)
         print(sc)
@@ -301,14 +317,19 @@ def match_soldeirs(line1, line2, n=3):
     for i in range(smalllength): # initialization, with size each default
         smallsizematch.append(sizeeach)
     
-    mindex = 0
-    midsize = int(len(smallsizematch)-1/2) -1
+    #midsize = int(len(smallsizematch)-1/2) -1
+    midsize = int((len(smallsizematch))/2) -1
     midflip = 0
+    #print(smallsizematch)
     #print("sizextra : " + str(sizeextra))
     while sizeextra > 0:
         midflip *= -1
         if midflip >= 0:
             midflip +=1
+        #print(smallsizematch)
+        #print(midsize)
+        #print(len(smallsizematch))
+        #print(midflip)
         smallsizematch[midsize + midflip] +=1
         sizeextra -= 1
 
@@ -480,13 +501,14 @@ def purge_dead(reg, morale_damage = True):
         for soldier in purges:
             # remove dead soldiers
             rank.remove(soldier)
+    purge = []
     for soldier in reg.soldiers:
         if soldier.hitpoints <= 0:
-            if soldier.marked:
-                #print(soldier.name + " Dies!")
-                pass
             losses.append(soldier)
-            reg.soldiers.remove(soldier)
+            purge.append(soldier)
+    for soldier in purge:
+        reg.soldiers.remove(soldier)
+    
     return losses
 
 def ranged_attack(attacker, defender_index, defender_rank, defender_regiment):
@@ -532,20 +554,22 @@ def regiment_make_ranged_attacks(regiment, army2):
                     soldier.attacks_left -= 1
 
 def army_make_ranged_attacks(army1, army2):
-    for reg in army1.regiments:
-        regiment_make_ranged_attacks(reg, army2)
+    if len(army2.regiments )> 0:
+        for reg in army1.regiments:
+            regiment_make_ranged_attacks(reg, army2)
 
 def army_fight(army1, army2, reporting = True):
     army1.refresh_attacks()
     army2.refresh_attacks()
+    for s in army1.regiments[0].soldiers:
+        if s.hitpoints <= 0:
+            raise Exception("Dead soldiers fighting")
     fights = match_soldeirs(army1.regiments[0].rank[0], army2.regiments[0].rank[0])
     losses = calculate_melee_fights(army1.regiments[0], army2.regiments[0], fights, reporting = True)
 
     def breakthrough_loop(a1, a2):
         # loop for multiple breakthroughs
         while True:
-            losses[0] += army1.purge_dead()
-            losses[1] += army2.purge_dead()
             breakthrough = 0
             if len(a1.regiments[0].rank[0]) == 0:
                 a1.regiments[0].rank.pop(0)
@@ -571,32 +595,22 @@ def army_fight(army1, army2, reporting = True):
                     elif breakthrough == 3:
                             print(a1.name + "'s and " + a2.name + "'s frontlines both dissolve, and the fresh second lines charge forward.")
 
-                try:
-                    fights = match_soldeirs(a1.regiments[0].rank[0], a2.regiments[0].rank[0])
-                    l = calculate_melee_fights(a1.regiments[0], a2.regiments[0], fights, reporting = reporting, attacks_refreshment = False)
-                    losses[0] += l[0]
-                    losses[1] += l[1]
-                except:
-                    print(breakthrough)
-                    print("t1")
-                    print(a1.regiments[0])
-                    print("t2")
-                    print(a1.regiments[0].rank[0])
-                    print("t3")
-                    print(a2.regiments[0])
-                    print(a2.regiments[0].soldiers[0].hitpoints)
-                    print("t4")
-                    print(a2.regiments[0].rank[0])
 
-                    
 
-                    raise Exception("fuckshit")
+
+                fights = match_soldeirs(a1.regiments[0].rank[0], a2.regiments[0].rank[0])
+                l = calculate_melee_fights(a1.regiments[0], a2.regiments[0], fights, reporting = reporting, attacks_refreshment = False)
+                losses[0] += l[0]
+                losses[1] += l[1]
+
             else:
                 break
         
     
     breakthrough_loop(army1, army2)
 
+    losses[0] += army1.purge_dead()
+    losses[1] += army2.purge_dead()
     print("Melee losses: ")
     print("\t" + army1.name + " loses " + str(len(losses[0])))
     print("\t" + army2.name + " losses " + str(len(losses[1])))
@@ -618,8 +632,8 @@ for i in range(100):
     soldiers1.append(Soldier(name="soldier", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False))
 
 soldiers2 = []
-for i in range(10):
-    soldiers2.append(Soldier("Defender", 'D', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, False))
+for i in range(50):
+    soldiers2.append(Soldier("Defender", 'D', 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, False))
 
 artillery = []
 for i in range(1):
