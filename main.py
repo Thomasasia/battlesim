@@ -1,24 +1,24 @@
 
 class Soldier:
-    name = "default"
-    character = "d"
-    maxhp = 1
-    hitpoints = 1
-    attack_ph = 1
-    attack_m = 0
-    defense_ph = 1
-    defense_m = 0
-    attacks = 1
-    penetration = 0
-    aoe = 0
-    morale = 1
-    moralepool = 1
-    size = 1
+    #name = "default"
+    #character = "d"
+    #maxhp = 1
+    #hitpoints = 1
+    #attack_ph = 1
+    #attack_m = 0
+    #defense_ph = 1
+    #defense_m = 0
+    #attacks = 1
+    #penetration = 0
+    #aoe = 0
+    #morale = 1
+    #moralepool = 1
+    #size = 1
 
-    melee = True
-    ranged = False
-    healer = False
-    marked = False # determines if the console will output messages from this soldier especially. ie for player characters.
+    #melee = True
+    #ranged = False
+    #healer = False
+    #marked = False # determines if the console will output messages from this soldier especially. ie for player characters.
 
 
     def __init__(self, name, character, maxhp, attack_ph, attack_m, defense_ph, defense_m, attacks, penetration, aoe, morale, moralepool, size, melee, ranged, healer, marked):
@@ -43,9 +43,14 @@ class Soldier:
         self.marked = marked
 
 class Regiment:
-    num_ranks = 1
-    rank = [] # all ranks
-    soldiers = [] # all soldiers
+    #num_ranks = 1
+    #rank = [] # all ranks
+    #soldiers = [] # all soldiers
+    def __init__(self, soldiers, num_ranks):
+        self.num_ranks = num_ranks
+        self.soldiers = soldiers
+        self.rank = []
+        self.sort_soldiers()
 
     def swap_ranks(self, pos1, pos2):
         temp = self.rank[pos1]
@@ -93,19 +98,20 @@ class Regiment:
             if self.num_ranks > 1:
                 self.swap_ranks(0, len(self.rank)-1)
 
-    def __init__(self, soldiers, num_ranks):
-        self.num_ranks = num_ranks
-        self.soldiers = soldiers
-        self.sort_soldiers()
+
 
 
 
 
 
 class Army:
-    regiments = []
+    #regiments = []
     def __init__(self, regiments):
         self.regiments = regiments
+        #print("army init:")
+        #print(regiments)
+        #print(regiments[0].rank)
+        #print()
     def print_army(self):
         for regiment in self.regiments:
             print()
@@ -123,8 +129,8 @@ def match_soldeirs(line1, line2, n=3):
     else:
         bigline = line2
         smallline = line1
-    biglength
-    smalllength
+    biglength = 0
+    smalllength = 0
     for soldier in bigline:
         biglength += soldier.size
     for soldier in smallline:
@@ -133,17 +139,31 @@ def match_soldeirs(line1, line2, n=3):
     
     # i should probably make a more efficient method. Probably a hash table. Def a hash table!!
     def size_index_to_soldier(l, s):
+        if 0 > s:
+            raise Exception("Size cannot be negative")
         sc = 0
-        for i in range(len(l)-1):
-            sc += l[i]
-            if sc > s:
+        for i in range(len(l)):
+            sc += l[i].size
+            if sc >= s:
+                #print("size: " + str(s) + " position/index: " + str(i))
                 return i
+        print("Size indexer failed~~")
+        print(l)
+        print(sc)
+        print(s)
+        print()
+        raise Exception("Size indexer failure")
 
     # trim excess
     if length_ratio > n:
         diff = biglength - (smalllength * n)
-        purgei1 = size_index_to_soldier(bigline, diff/2) -1
-        purgei2 = size_index_to_soldier(bigline, biglength - (diff/2)) +1
+        purgei1 = size_index_to_soldier(bigline, int(diff/2))
+        purgei2 = size_index_to_soldier(bigline, biglength - int(diff/2) - (diff%2))
+        #print("diff " + str(diff))
+        #print(purgei1)
+        #print(purgei2)
+
+
         bigline = bigline[purgei1:purgei2]
         biglength = 0
         for soldier in bigline:
@@ -151,62 +171,98 @@ def match_soldeirs(line1, line2, n=3):
         length_ratio = n
     
     # calculate sizematch
-    bigsizesmatch = []
+    smallsizematch = []
     sizeeach = int(biglength/smalllength)
     sizeextra = int(biglength) % int(smalllength)
-    for i in range(biglength): # initialization, with size each default
-        bigsizesmatch.append(sizeeach)
+    for i in range(smalllength): # initialization, with size each default
+        smallsizematch.append(sizeeach)
     
     mindex = 0
-    midsize = int(len(bigsizesmatch)-1/2) -1
+    midsize = int(len(smallsizematch)-1/2) -1
     midflip = 0
+    #print("sizextra : " + str(sizeextra))
     while sizeextra > 0:
         midflip *= -1
         if midflip >= 0:
             midflip +=1
-        bigsizesmatch[midsize + midflip] +=1
-        setextra -= 1
+        smallsizematch[midsize + midflip] +=1
+        sizeextra -= 1
+
+    #print("Small size match: ")
+    #print(smallsizematch)
+    #print("Size each: ")
+    #print(sizeeach)
+    #print("Size extra: ")
+    #print(sizeextra)
+    #print("Big length: ")
+    #print(biglength)
+    #print("small length: ")
+    #print(smalllength)
+    #print()
 
     # map sizes to sizes, to create a list of pairings.
     # start with right
     fights = []
-    smallrightindex = 0
+    bigrightindex = 0
+    bigmid = int(biglength/2)
     smallmid = int(smalllength/2)
-    for i in range(midsize-1, len(bigsizesmatch)-1):
-        for n in range(bigsizematch[i]):
-            fight = [bigline[size_index_to_soldier(bigline, i)], smallline[size_index_to_soldier(smallline, smallmid + smallrightindex)]]
-            smallrightindex += 1
+    for i in range(smallmid, len(smallsizematch)):
+        #print(" I VALUE : " + str(i), " midsize" + str(smallmid))
+        for n in range(smallsizematch[i]):
+            
+            big_index = size_index_to_soldier(bigline, bigmid + bigrightindex)
+            #print("bigmid :" + str(bigmid) + " bigrightindex : " + str(bigrightindex) + " big_index = " + str(big_index))
+            small_index = size_index_to_soldier(smallline, i +1)
+            fight = [bigline[big_index], smallline[small_index], big_index, small_index]
+            bigrightindex += 1
             # no redundant fights
-            if fight[0] != fights[-1][0] or fight[1] != fights[-1][1]:
+            if len(fights) == 0:
                 fights.append(fight)
-    smallleftindex = -1
-    for i in range(midsize, 0, -1):
-        for n in range(bigsizematch[i]):
-            fight = [bigline[size_index_to_soldier(bigline, i)], smallline[size_index_to_soldier(smallline, smallmid + smallrightindex)]]
-            smallleftindex -= 1
+            elif fight[0] != fights[-1][0] or fight[1] != fights[-1][1]:
+                fights.append(fight)
+    bigleftindex = -1
+    for i in range(smallmid-1, -1, -1):
+        #print(" I VALUE : " + str(i))
+        for n in range(smallsizematch[i]):
+            
+            big_index = size_index_to_soldier(bigline, bigmid + bigleftindex)
+            #print("bigmid :" + str(bigmid) + " bigleftindex : " + str(bigleftindex)  + " big_index = " + str(big_index))
+            small_index = size_index_to_soldier(smallline, i +1)
+            fight = [bigline[big_index], smallline[small_index], big_index, small_index]
+            bigleftindex -= 1
             # no redundant fights
-            if fight[0] != fights[-1][0] or fight[1] != fights[-1][1]:
+            if len(fights) == 0:
+                fights.append(fight)
+            elif fight[0] != fights[-1][0] or fight[1] != fights[-1][1]:
                 fights.append(fight)
     return fights
 
-
+def print_fights(fights):
+    for fight in fights:
+        text = fight[0].name + " at position " + str(fight[2]) + " vs " + fight[1].name + " at position " + str(fight[3])
+        print(text) 
 
     
 
 soldiers1 = []
 for i in range(3):
-    soldiers.append(Soldier("Dude", 'A', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, False))
+    soldiers1.append(Soldier("Outnumbered Dude", 'A', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, False))
 
 soldiers2 = []
 for i in range(10):
-    soldiers.append(Soldier("Dude", 'A', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, False))
+    soldiers2.append(Soldier("Confident Dude", 'A', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, False))
+
 
 reg1 = Regiment(soldiers1, 1)
 reg2 = Regiment(soldiers2, 1)
-army1 = Army([reg1])
 
+
+army1 = Army([reg1])
 army2 = Army([reg2])
 
-fights = match_soldeirs(army1.regiments[0].ranks[0], army2.regiments[0].ranks[0])
+army1.print_army()
+army2.print_army()
 
-print(fights)
+fights = match_soldeirs(army1.regiments[0].rank[0], army2.regiments[0].rank[0])
+
+print_fights(fights)
