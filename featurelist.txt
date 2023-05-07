@@ -37,7 +37,7 @@ In melee, the front lines do combat. Each soldier is paired to another soldier(s
 
 In ranged, the attack is made on a random soldier in a random line. Front lines are more likely to be targeted.
 
-Each death requires adjacent soldiers to make a morale save, if failed that will decrement the total moralepool. at 0, the regiment will get a malus. at -50%, the flee
+Each death requires adjacent soldiers to make a morale save, if failed that will decrement the total moralepool. at 0, the regiment will get a malus. at -50%, they flee
 
 
 

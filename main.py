@@ -1,3 +1,11 @@
+import random
+
+# much faster than urandom, good for integer randomness
+def random_bytes(n):
+    return random.getrandbits(8 * n).to_bytes(n, 'big')
+
+def random_roll(min = 1, max = 3):
+    return (int.from_bytes(random_bytes(1), "big") % max) + min
 
 class Soldier:
     #name = "default"
@@ -31,6 +39,7 @@ class Soldier:
         self.defense_ph = defense_ph
         self.defense_m = defense_m
         self.attacks = attacks
+        self.attacks_left = attacks
         self.penetration = penetration
         self.aoe = aoe
         self.morale = morale
@@ -51,6 +60,14 @@ class Regiment:
         self.soldiers = soldiers
         self.rank = []
         self.sort_soldiers()
+        self.calculate_morale_pool()
+    
+    def calculate_morale_pool():
+        self.max_morale = 0
+        self.morale_pool = 0
+        for soldier in self.soldiers:
+            max_morale += soldier.morale_pool
+        self.morale_pool = max_morale
 
     def swap_ranks(self, pos1, pos2):
         temp = self.rank[pos1]
@@ -97,12 +114,6 @@ class Regiment:
             # the front will have the most variety, so we move that to the back so commanders dont die immediately.
             if self.num_ranks > 1:
                 self.swap_ranks(0, len(self.rank)-1)
-
-
-
-
-
-
 
 class Army:
     #regiments = []
@@ -242,15 +253,106 @@ def print_fights(fights):
         text = fight[0].name + " at position " + str(fight[2]) + " vs " + fight[1].name + " at position " + str(fight[3])
         print(text) 
 
+def melee_attack(attacker, defender, attacker_mod = 1.0, defender_mod = 1.0):
+    if attacker.attacks_left > 0 and defender.hitpoints > 0:
+        attacker.attacks_left -= 1
+        attacker_attack_score = 0
+        defender_defense_score = 0
+        # if physical attack is more effective, or if the attacker cannot use magic attacks, attack will be physical
+        # in other words, they will use the most effective attack availible to them
+        if (attacker.attack_ph - defender.defense_ph) > (attacker.attack_m - defender.defense_m) or attacker.attack_m == 0:
+            attacker_attack_score = attacker.attack_ph
+            defender_defense_score = defender.defense_ph
+        else:
+            attacker_attack_score = attacker.attack_m
+            defender_defense_score = defender.defense_m
+        
+        # modifications to score
+        def melee_penalty(battle_score, fighter):
+            new_battle_score = battle_score
+            if fighter.melee == False:
+                new_battle_score = new_battle_score / 2
+            return new_battle_score
+
+        attacker_attack_score = melee_penalty(attacker_attack_score, attacker) * attacker_mod
+        defender_defense_score = melee_penalty(defender_defense_score, defender) * defender_mod
+
+        def score_roll(battle_score, dice_size = 3):
+            iscore = int(battle_score)
+            
+            fscore = battle_score % iscore
+            total_score = 0
+            for i in range(iscore):
+                total_score += random_roll(max = dice_size)
+            if fscore > 0:
+                total_score += random_roll(max = dice_size) * fscore
+            return total_score
+        
+        attack_roll = score_roll(attacker_attack_score)
+        defense_roll = score_roll(attacker_attack_score)
+
+        delta_hp = attack_roll - max( defense_roll - attacker.penetration ,0)
+        defender.hitpoints -= max(delta_hp, 0)
+        if defender.marked or attacker.marked:
+            print(attacker.name + " attackes " + defender.name + "!!")
+            print("\t" + attacker.name + " attack strength : " + str(attacker_attack_score))
+            print("\t" + attacker.name + " attack roll     : " + str(attack_roll))
+            print("\t" + defender.name + " defense strength : " + str(defender_defense_score))
+            print("\t" + defender.name + " defense roll     : " + str(defense_roll))
+            print("\tAttacker penetration : " + str(attacker.penetration))
+            print("\t" + defender.name + " takes " + str(max(delta_hp, 0)) + " damage!")
+        
+
+
+        
+
+
+
+
+
+
+def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, purge_dead = True):
+    bigreg = []
+    smallreg = []
+    bigmod = 1.0
+    smallmod = 1.0
+    if len(reg1.rank[0]) >= len(reg2.rank[0]):
+        bigreg = reg1
+        bigmod = reg1mod
+        smallreg = reg2
+        smallmod = reg2mod
+    else:
+        bigreg = reg2
+        bigmod = reg2mod
+        smallreg = reg1
+        smallmod = reg1mod
+
+    # each soldier must be granted their attacks:
+    def reset_attacks(reg):
+        for soldier in reg.rank[0]:
+            soldier.attacks_left = soldier.attacks
+
+    reset_attacks(reg1)
+    reset_attacks(reg2)
+
+    for fight in fights:
+        melee_attack(fight[0], fight[1], bigmod, smallmod)
+        melee_attack(fight[1], fight[0], bigmod, smallmod)
     
+    # now we must remove dead soldiers, and apply morale damage
+
+
+def purge_dead(reg, morale_damage = True)
+
+
 
 soldiers1 = []
 for i in range(3):
-    soldiers1.append(Soldier("Outnumbered Dude", 'A', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, False))
+    soldiers1.append(Soldier("Outnumbered Dude", 'A', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, True))
 
 soldiers2 = []
 for i in range(10):
-    soldiers2.append(Soldier("Confident Dude", 'A', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, False))
+    soldiers2.append(Soldier("Confident Dude", 'A', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, True))
 
 
 reg1 = Regiment(soldiers1, 1)
@@ -264,5 +366,12 @@ army1.print_army()
 army2.print_army()
 
 fights = match_soldeirs(army1.regiments[0].rank[0], army2.regiments[0].rank[0])
+calculate_melee_fights(army1.regiments[0], army2.regiments[0], fights)
 
-print_fights(fights)
+
+# next, simulate the fights. each soldier should fight n times, where n is the number of attacks they get.
+# only attack foes with health
+# update their health. Afterwards, remove dead soldiers from the line and regiment.
+# next should be ranged attacks, plus aoe
+# then heal spells.
+# then commands
