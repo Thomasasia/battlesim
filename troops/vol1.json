@@ -1,0 +1,44 @@
+[
+    {
+        "name" : "soldier1",
+        "character" : "Ù",
+        "maxhp" : 1,
+        "attack_ph" : 1,
+        "attack_m" : 0,
+        "defense_ph" : 1,
+        "defense_m" : 0,
+        "attacks" : 1,
+        "penetration" : 0,
+        "aoe" : 0,
+        "morale_save" : 1,
+        "morale_pool_contribution" : 2,
+        "size" : 1,
+        "melee" : true,
+        "ranged" : false,
+        "healer" : false,
+        "marked" : false,
+        "color"  : "red"
+    },
+    {
+        "name" : "soldier2",
+        "character" : "A",
+        "maxhp" : 1,
+        "attack_ph" : 1,
+        "attack_m" : 0,
+        "defense_ph" : 1,
+        "defense_m" : 0,
+        "attacks" : 1,
+        "penetration" : 0,
+        "aoe" : 0,
+        "morale_save" : 1,
+        "morale_pool_contribution" : 2,
+        "size" : 1,
+        "melee" : true,
+        "ranged" : false,
+        "healer" : false,
+        "marked" : false,
+        "color"  : "green"
+
+    }
+
+]

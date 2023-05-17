@@ -1,5 +1,13 @@
 import random
+import json
+import glob
+import math
+from termcolor import colored
 
+global army1
+global army2
+global SoldierType_Library
+SoldierType_Library = {}
 
 # much faster than urandom, good for integer randomness
 def random_bytes(n):
@@ -23,8 +31,9 @@ def random_roll_f_dice(f, max_roll = 3, min_roll = 1):
         total_roll += random_roll(min_roll = min_roll, max_roll = max_roll) * f_val
     return total_roll
 
-class Soldier:
-    def __init__(self, name="soldier", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False):
+
+class SoldierType:
+    def __init__(self, name="soldier", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False, color = 'light_grey'):
         self.name = name.lower()
         self.character = character
         self.maxhp = maxhp
@@ -45,12 +54,39 @@ class Soldier:
         self.ranged = ranged
         self.healer = healer
         self.marked = marked
+        self.color = color
+
+class Soldier:
+
+    # alternative constructor that takes a SoldierType object
+    def __init__(self, soldiertype):
+        self.name = soldiertype.name
+        self.character = soldiertype.character
+        self.maxhp = soldiertype.maxhp
+        self.hitpoints = soldiertype.maxhp
+        self.attack_ph = soldiertype.attack_ph
+        self.attack_m = soldiertype.attack_m
+        self.defense_ph = soldiertype.defense_ph
+        self.defense_m = soldiertype.defense_m
+        self.attacks = soldiertype.attacks
+        self.attacks_left = soldiertype.attacks
+        self.penetration = soldiertype.penetration
+        self.aoe = soldiertype.aoe
+        self.morale_save = soldiertype.morale_save
+        self.morale_pool_contribution = soldiertype.morale_pool_contribution
+        self.size = soldiertype.size
+
+        self.melee = soldiertype.melee
+        self.ranged = soldiertype.ranged
+        self.healer = soldiertype.healer
+        self.marked = soldiertype.marked
+        self.color = soldiertype.color
 
     # returns true if the morale save is successful
     def roll_morale_save(self, ignore_death = False):
         if not ignore_death and self.hitpoints <= 0:
             return True
-        
+
         roll = random_roll_f_dice(self.morale_save, max_roll = 3)
         if roll > 0:
             return True
@@ -74,7 +110,7 @@ class Regiment:
         self.sort_soldiers()
         self.calculate_morale_pool()
         self.range_toggle = True
-    
+
     def calculate_morale_pool(self):
         self.max_morale = 0
         self.morale_pool = 0
@@ -98,6 +134,7 @@ class Regiment:
             sizecounter += self.rank[r][i].size
             if sizecounter >= size:
                 return i
+
     def size_from_index(self,r, index):
         size_counter = 0
         for i in range(index+1):
@@ -116,14 +153,14 @@ class Regiment:
             return size - (maxsize / 2)
         def midsize_to_size(size, maxsize):
             return size + (maxsize / 2)
-        
+
         center = size_to_midsize(self.size_from_index(rank_index, index), sizemap[rank_index])
         min_rank_search = max(0, rank_index - distance)
         max_rank_search = min(len(self.rank)-1, rank_index + distance)
 
         adjacent_soldiers = []
         for i in range(min_rank_search, max_rank_search + 1, 1):
-            
+
             for s in range(int(center - distance), int(center + distance + 1), 1):
                 soldier = self.index_from_size(i, midsize_to_size(s, sizemap[i]))
                 if soldier == None:
@@ -135,10 +172,6 @@ class Regiment:
                     adjacent_soldiers.append(soldier)
         return adjacent_soldiers
 
-
-
-
-
     def sort_soldiers(self):
         self.rank.clear()
         for i in range(self.num_ranks):
@@ -146,7 +179,7 @@ class Regiment:
         types = {}
         for soldier in self.soldiers:
             if not soldier.character in types.keys():
-                types[soldier.character] = []                
+                types[soldier.character] = []
             types[soldier.character].append(soldier)
         # sort types by count
         t = []
@@ -175,10 +208,37 @@ class Regiment:
             while soldier_index < num_soldiers:
                 self.rank[0].insert(int(len(r)/2), types[key][soldier_index])
                 soldier_index+=1
-            
+
             # the front will have the most variety, so we move that to the back so commanders dont die immediately.
             if self.num_ranks > 1:
                 self.swap_ranks(0, len(self.rank)-1)
+
+    def add_soldiers(self, type, number):
+        for i in range(number):
+            self.soldiers.append(Soldier(type))
+        
+        self.sort_soldiers()
+
+    def get_troop_types(self):
+        troops = []
+        def check_redundant(name):
+            for t in troops:
+                if t[0] == name:
+                    return True
+            return False
+        def incr_troop_count(name):
+            for t in troops:
+                if t[0] == name:
+                    t[1] += 1
+                    return
+        
+        for soldier in self.soldiers:
+            if check_redundant(soldier.name):
+                incr_troop_count(soldier.name)
+            else:
+                troops.append([soldier.name, 1, soldier.character])
+
+        return troops
 
 class Army:
     #regiments = []
@@ -194,14 +254,67 @@ class Army:
 
     # add option to invert the display
     # center the army lines
-    def print_army(self):
+    def print_army(self, reverse = False, count = False, space_size = -1):
+        if space_size == -1:
+            max_line = 0
+            for regiment in self.regiments:
+                for rank in regiment.rank:
+                    if len(rank) > max_line:
+                        max_line = len(rank)
+        else:
+            max_line = space_size
+
+        reg_print = []
         for regiment in self.regiments:
-            print()
+            rank_print = []
             for rank in regiment.rank:
+                spaces = max_line - len(rank)
+                front = math.floor(spaces / 2) * " "
+                back = math.ceil(spaces / 2) * " "# remainder goes on the back
+                line = ""
                 for soldier in rank:
-                    print(soldier.character, end='')
-                print()
-    
+                    line += colored(soldier.character, soldier.color)
+                if count : 
+                    count_barrier = " || "
+                else : 
+                    count_barrier = ""
+                rank_print.append(front + line + back + count_barrier)
+            if reverse:
+                rank_print.reverse()
+
+            # display troop counts
+            if count:
+                troops = regiment.get_troop_types()
+                for i in range(len(troops)):
+
+                    stat_string = " " + str(troops[i][1]) + " " + troops[i][0] + "s (" + troops[i][2] + ")"
+                    if (i+1) / len(rank_print) > 1:
+                        stat_string = " /" + stat_string
+                    
+                    # divide the number stats across the ranks, for better formatting!
+                    rank_print[i%len(rank_print)] += stat_string
+
+            reg_print.append(rank_print)
+        if reverse:
+            reg_print.reverse()
+
+        print()
+        for rp in reg_print:
+            for r in rp:
+                print(r)
+            print()
+        print()
+
+    def get_size_of_largest_rank(self):
+        max = 0
+        for reg in self.regiments:
+            for rank in reg.rank:
+                size = len(rank)
+                if size > max:
+                    max = size
+        
+        return max
+
     # random soldier, using size instead of index inside of a line
     def get_weighed_random_soldier(self):
         regroll = []
@@ -209,14 +322,14 @@ class Army:
             # closer regiments to the front are much more likely to be hit
             roll = random_roll_f_dice( len(self.regiments) - i   )
             regroll.append(roll)
-        
+
         selected_regiment_index = 0
         selected_regiment_index_roll = 0
         for i in range(len(regroll)):
             if selected_regiment_index_roll < regroll[i]:
                 selected_regiment_index_roll = regroll[i]
                 selected_regiment_index = i
-        
+
         try:
             ranksize = len(self.regiments[selected_regiment_index].rank) -1
         except IndexError:
@@ -229,7 +342,7 @@ class Army:
         maxsize = 0
         for soldier in rank:
             maxsize += soldier.size
-        
+
         size_selection = random_roll(min_roll = 1, max_roll = maxsize, byte_count = 8)
 
         soldier_index = 0
@@ -292,9 +405,9 @@ class Army:
                         soldier.hitpoints = -1
                         count +=1
             if count == 0:
-                return -1            
+                return -1
             else : return 0
-        
+
         # build a pool of soldiers to kill
         killpool = []
         if reg == -1:
@@ -332,6 +445,27 @@ class Army:
                 return i
         return -1
 
+    def get_troop_types(self):
+        troops = []
+        def check_redundant(name):
+            for t in troops:
+                if t[0] == name:
+                    return True
+            return False
+        def incr_troop_count(name):
+            for t in troops:
+                if t[0] == name:
+                    t[1] += 1
+                    return
+        for reg in self.regiments:
+            for soldier in reg.soldiers:
+                if check_redundant(soldier.name):
+                    incr_troop_count(soldier.name)
+                else:
+                    troops.append([soldier.name, 1])
+
+        return troops
+
 
 def match_soldeirs(line1, line2, n=3):
     bigline = []
@@ -348,11 +482,11 @@ def match_soldeirs(line1, line2, n=3):
         biglength += soldier.size
     for soldier in smallline:
         smalllength += soldier.size
-    
+
     if smalllength == 0:
         raise Exception("Small size is zero!")
     length_ratio = biglength / smalllength
-    
+
     # i should probably make a more efficient method. Probably a hash table. Def a hash table!!
     def size_index_to_soldier(l, s):
         if 0 > s:
@@ -387,14 +521,14 @@ def match_soldeirs(line1, line2, n=3):
         for soldier in bigline:
             biglength += soldier.size
         length_ratio = n
-    
+
     # calculate sizematch
     smallsizematch = []
     sizeeach = int(biglength/smalllength)
     sizeextra = int(biglength) % int(smalllength)
     for i in range(smalllength): # initialization, with size each default
         smallsizematch.append(sizeeach)
-    
+
     #midsize = int(len(smallsizematch)-1/2) -1
     midsize = int((len(smallsizematch))/2) -1
     midflip = 0
@@ -432,7 +566,7 @@ def match_soldeirs(line1, line2, n=3):
     for i in range(smallmid, len(smallsizematch)):
         #print(" I VALUE : " + str(i), " midsize" + str(smallmid))
         for n in range(smallsizematch[i]):
-            
+
             big_index = size_index_to_soldier(bigline, bigmid + bigrightindex)
             #print("bigmid :" + str(bigmid) + " bigrightindex : " + str(bigrightindex) + " big_index = " + str(big_index))
             small_index = size_index_to_soldier(smallline, i +1)
@@ -447,7 +581,7 @@ def match_soldeirs(line1, line2, n=3):
     for i in range(smallmid-1, -1, -1):
         #print(" I VALUE : " + str(i))
         for n in range(smallsizematch[i]):
-            
+
             big_index = size_index_to_soldier(bigline, bigmid + bigleftindex)
             #print("bigmid :" + str(bigmid) + " bigleftindex : " + str(bigleftindex)  + " big_index = " + str(big_index))
             small_index = size_index_to_soldier(smallline, i +1)
@@ -463,7 +597,7 @@ def match_soldeirs(line1, line2, n=3):
 def print_fights(fights):
     for fight in fights:
         text = fight[0].name + " at position " + str(fight[2]) + " vs " + fight[1].name + " at position " + str(fight[3])
-        print(text) 
+        print(text)
 
 def melee_attack(attacker, defender, attacker_mod = 1.0, defender_mod = 1.0):
     if attacker.attacks_left > 0 and defender.hitpoints > 0:
@@ -478,7 +612,7 @@ def melee_attack(attacker, defender, attacker_mod = 1.0, defender_mod = 1.0):
         else:
             attacker_attack_score = attacker.attack_m
             defender_defense_score = defender.defense_m
-        
+
         # modifications to score
         def melee_penalty(battle_score, fighter):
             new_battle_score = battle_score
@@ -548,7 +682,7 @@ def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_pu
     for fight in fights:
         melee_attack(fight[0], fight[1], bigmod, smallmod)
         melee_attack(fight[1], fight[0], smallmod, bigmod)
-    
+
     reg1_soldiers_count = len(reg1.soldiers)
     reg2_soldiers_count = len(reg2.soldiers)
 
@@ -588,7 +722,7 @@ def purge_dead(reg, morale_damage = True):
             purge.append(soldier)
     for soldier in purge:
         reg.soldiers.remove(soldier)
-    
+
     return losses
 
 def ranged_attack(attacker, defender_index, defender_rank, defender_regiment):
@@ -600,8 +734,8 @@ def ranged_attack(attacker, defender_index, defender_rank, defender_regiment):
     else:
         attack_type = 'p'
         attack_power = attacker.attack_ph
-    
-    
+
+
 
     def defend_against_attack(attack, pen, defender):
         defense_power = 0
@@ -609,12 +743,12 @@ def ranged_attack(attacker, defender_index, defender_rank, defender_regiment):
             defense_power = defender.defense_m
         else:
             defense_power = defender.defense_ph
-        
+
         defense_roll = random_roll_f_dice(defense_power) - attacker.penetration
         defender.hitpoints -= max(attack - defense_roll, 0)
         if attacker.marked or defender.marked:
             print(attacker.name + " shoots at " + defender.name + " for " + str(max(attack - defense_roll, 0)) + " damage!")
-    
+
     if attacker.aoe < 1:
         attack_roll = random_roll_f_dice(attack_power)
         defend_against_attack(attack_roll, attacker.penetration, defender_regiment.rank[defender_rank][defender_index])
@@ -623,7 +757,7 @@ def ranged_attack(attacker, defender_index, defender_rank, defender_regiment):
 
         for defender in adjacent_defenders:
             defend_against_attack(random_roll_f_dice(attack_power), attacker.penetration, defender)
-    
+
 def regiment_make_ranged_attacks(regiment, army2):
     if regiment.range_toggle:
         for line in regiment.rank:
@@ -658,14 +792,14 @@ def army_fight(army1, army2, reporting = True):
             if len(a2.regiments[0].rank[0]) == 0:
                 a2.regiments[0].rank.pop(0)
                 breakthrough += 2
-            
+
             if len(a1.regiments[0].soldiers) == 0:
                 a1.regiments.pop(0)
                 break
             if len(a2.regiments[0].soldiers) == 0:
                 a2.regiments.pop(0)
                 break
-            
+
             if breakthrough > 0:
                 armies = [a1, a2]
                 if reporting:
@@ -686,8 +820,8 @@ def army_fight(army1, army2, reporting = True):
 
             else:
                 break
-        
-    
+
+
     breakthrough_loop(army1, army2)
 
     losses[0] += army1.purge_dead()
@@ -695,7 +829,7 @@ def army_fight(army1, army2, reporting = True):
     print("Melee losses: ")
     print("\t" + army1.name + " loses " + str(len(losses[0])))
     print("\t" + army2.name + " losses " + str(len(losses[1])))
-    
+
     # ranged attacks
     army_make_ranged_attacks(army1, army2)
     army_make_ranged_attacks(army2, army1)
@@ -711,46 +845,17 @@ def army_fight(army1, army2, reporting = True):
     army2.activate_all_healers()
 
 
+def populate_troop_library():
+    global SoldierType_Library
+    # gets all json files in troops, recursively
+    files = glob.glob('troops/**/*.json', recursive = True)
+    for file in files:
+        with open(file, "r") as read_file:
+            data = json.load(read_file)
+            for s in data:
+                if not s["name"] in SoldierType_Library.keys():
+                    SoldierType_Library[s["name"]] = SoldierType(name=s["name"], character=s["character"], maxhp=s["maxhp"], attack_ph=s["attack_ph"], attack_m=s["attack_m"], defense_ph=s["defense_ph"], defense_m=s["defense_m"], attacks=s["attacks"], penetration=s["penetration"], aoe=s["aoe"], morale_save=s["morale_save"], morale_pool_contribution=s["morale_pool_contribution"], size=s["size"], melee=s["melee"], ranged=s["ranged"], healer=s["healer"], marked=s["marked"], color=s["color"])
 
-
-soldiers1 = []
-for i in range(30):
-    soldiers1.append(Soldier(name="soldier1", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False))
-
-soldiers2 = []
-for i in range(30):
-    soldiers2.append(Soldier(name="soldier2", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False))
-
-artillery = []
-for i in range(1):
-    artillery.append((Soldier(name="mrheal", character="H", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=True, marked=False)))
-
-
-reg1 = Regiment("TargetPractice", soldiers1, 1)
-reg2 = Regiment("Defenders", soldiers2, 1)
-artyreg = Regiment("Artillery Regiment", artillery, 1)
-global army1
-global army2
-army1 = Army("a1",[reg1])
-army2 = Army("a2",[reg2,artyreg])
-
-army1.print_army()
-army2.print_army()
-
-global round
-round = 1
-#while True:
-#    print("\n---- ROUND "+str(round)+" ----\n")
-#    army_fight(army1, army2)
-
-#    print("army1")
-#    army1.print_army()
-#    print("\narmy2")
-#    army2.print_army()
-#    input()
-#    round += 1
-#    if army1.check_empty() or army2.check_empty():
-#        break
 
 def print_use(command):
     pass
@@ -795,7 +900,7 @@ def regiment_logic(code, army, cmd):
     if army is None:
         return None
     regiment = -1
-    
+
     if not code.isnumeric():
         for i in range(len(army.regiments)):
             if army.regiments[i].name == code:
@@ -873,8 +978,6 @@ def cmd_kill_soldiers(cmd):
     army.kill_random_soldiers(int(cmd[1]), regiment, line)
     army.purge_dead()
 
-
-
 def cmd_range_toggle(cmd):
     global army1
     global army2
@@ -885,7 +988,7 @@ def cmd_range_toggle(cmd):
         army1.ranged_enabled = not army1.ranged_enabled
         army2.ranged_enabled = not army2.ranged_enabled
         return
-    
+
     if len(cmd) >=2:
         if not cmd[1].isnumeric():
             use_error("Incorrect range toggle value " + cmd[1], 'range_toggle')
@@ -897,7 +1000,7 @@ def cmd_range_toggle(cmd):
         else:
             use_error("Incorrect range toggle value " + cmd[1], 'range_toggle')
             return
-    
+
     if len(cmd) == 2:
         army1.ranged_enabled = newval
         army2.ranged_enabled = newval
@@ -909,7 +1012,7 @@ def cmd_range_toggle(cmd):
     if len(cmd) >=4:
         reg = regiment_logic(cmd[3], army, "range_toggle")
         if reg is None : return
-    
+
     if reg == -1:
         army.ranged_enabled = newval
     else:
@@ -924,12 +1027,12 @@ def cmd_morale_change(command):
     regiment = regiment_logic(command[2], army, 'morale_change')
     if army is None or regiment is None:
         return
-    
+
     try:
         army.regiments[regiment].morale_pool += int(command[3])
     except ValueError:
         use_error("Morale change is not numeric", 'morale_change')
-        return 
+        return
 
 
 def cmd_change_ranks(command):
@@ -940,7 +1043,7 @@ def cmd_change_ranks(command):
     regiment = regiment_logic(command[2], army, 'change_ranks')
     if army is None or regiment is None:
         return
-    
+
     if not command[3].isnumeric():
         use_error("rank depth is not numeric " + command[3], 'change_ranks')
         return
@@ -954,7 +1057,6 @@ def cmd_change_ranks(command):
             new_ranks = len(reg.soldiers)
         reg.num_ranks = new_ranks
         reg.sort_soldiers()
-
 
 def cmd_kss(command):
     if len(command) < 4:
@@ -985,9 +1087,27 @@ def cmd_kss(command):
         return
     army.purge_dead()
 
-
 def cmd_add(command):
-    pass
+    command_name = 'add'
+    if len(command) < 5:
+        use_error("Not enough arguments ", command_name)
+        return
+    try:
+        number = int(command[1])
+    except ValueError:
+        use_error("Non numeric value given for soldier count " + command[1], command_name)
+        return
+    soldier_name = command[2].lower()
+    if not soldier_name in SoldierType_Library.keys():
+        use_error("Invalid soldier name " + soldier_name, command_name)
+        return
+    soldier_type = SoldierType_Library[soldier_name]
+    army = army_logic(command[3], command_name)
+    if army is None : return
+    reg = regiment_logic(command[4], army, command_name)
+    if reg is None : return
+
+    army.regiments[reg].add_soldiers(soldier_type, number)
 
 def cmd_advantage(command):
     command_name = 'advantage'
@@ -1001,7 +1121,7 @@ def cmd_advantage(command):
     except ValueError:
         use_error("Float needed for advantage " + command[2], command_name)
         return
-    
+
     army.temporary_combat_advantage = adv
 
 def cmd_swap_regiments(command):
@@ -1025,8 +1145,6 @@ def cmd_swap_regiments(command):
     army.regiments[reg1] = army.regiments[reg2]
     army.regiments[reg2] = temp
 
-
-
 def cmd_assault(command):
     command_name = 'assault'
     if len(command) < 3:
@@ -1036,7 +1154,7 @@ def cmd_assault(command):
     global army2
     reg1 = army1.regiments[regiment_logic(command[1], army1, command_name)]
     reg2 = army2.regiments[regiment_logic(command[2], army2, command_name)]
-    
+
     if reg1 is None: return
     if reg2 is None: return
 
@@ -1046,7 +1164,7 @@ def cmd_assault(command):
         if range_enabled is None : return
 
     reg1.refresh_attacks()
-    reg2.refresh_attacks()    
+    reg2.refresh_attacks()
 
     fights = match_soldeirs(reg1.rank[0], reg2.rank[0])
     losses = calculate_melee_fights(reg1, reg2, fights, reporting = True, reg1mod = army1.temporary_combat_advantage, reg2mod = army2.temporary_combat_advantage)
@@ -1061,14 +1179,14 @@ def cmd_assault(command):
             if len(r2.rank[0]) == 0:
                 r2.rank.pop(0)
                 breakthrough += 2
-            
+
             if len(r1.soldiers) == 0:
                 army1.regiments.remove(r1)
                 break
             if len(r2.soldiers) == 0:
                 army2.regiments.remove(r2)
                 break
-            
+
             if breakthrough > 0:
                 if reporting:
                     if breakthrough == 1:
@@ -1088,7 +1206,7 @@ def cmd_assault(command):
 
             else:
                 break
-        
+
     breakthrough_loop(reg1, reg2)
 
     losses[0] += army1.purge_dead()
@@ -1096,7 +1214,7 @@ def cmd_assault(command):
     print("Melee losses: ")
     print("\t" + army1.name + " loses " + str(len(losses[0])))
     print("\t" + army2.name + " losses " + str(len(losses[1])))
-    
+
     if ranged_enabled:
         # ranged attacks
         regiment_make_ranged_attacks(reg1, army2)
@@ -1112,16 +1230,53 @@ def cmd_assault(command):
     army1.activate_healers(reg1)
     army2.activate_healers(reg2)
 
-
-
-
-
+def print_troop(troop, count = -1):
+    print("Name : " + troop.name)
+    if count > 0 : print("Count : " + str(count))
+    print("\tcharacter   : " + str(troop.character))
+    print("\tmaxhp       : " + str(troop.maxhp))
+    print("\tattack_ph   : " + str(troop.attack_ph))
+    print("\tattack_m    : " + str(troop.attack_m))
+    print("\tdefense_ph  : " + str(troop.defense_ph))
+    print("\tdefense_m   : " + str(troop.defense_m))
+    print("\tattacks     : " + str(troop.attacks))
+    print("\tpenetration : " + str(troop.penetration))
+    print("\taoe         : " + str(troop.aoe))
+    print("\tmorale_save : " + str(troop.morale_save))
+    print("\tmorle cntrb : " + str(troop.morale_pool_contribution))
+    print("\tsize        : " + str(troop.size))
+    print("\tmelee       : " + str(troop.melee))
+    print("\tranged      : " + str(troop.ranged))
+    print("\thealer      : " + str(troop.healer)) 
+    print("\tmarked      : " + str(troop.marked))
 
 def cmd_display_troops(command):
-    pass
+    if len(command) == 1:
+        for st in SoldierType_Library:
+            print_troop(SoldierType_Library[st])
+    else:
+        army = army_logic(command[1], "display_troops")
+        if army is None : return
+        troops = army.get_troop_types()
+        for t in troops:
+            print_troop(SoldierType_Library[t[0]], count = t[1])
+
+def display_both_armies():
+    global army1
+    global army2
+    space_size = max(army1.get_size_of_largest_rank(), army2.get_size_of_largest_rank())
+
+    army1.print_army(reverse = True, space_size=space_size)
+    army2.print_army(space_size=space_size)
 
 def cmd_display_army(command):
-    pass
+    if len(command) == 1:
+        display_both_armies()
+    else:
+        army = army_logic(command[1], "display_army")
+        if army is None : return
+        army.print_army(count=True)
+
 
 def cmd_show_log(command):
     pass
@@ -1129,11 +1284,56 @@ def cmd_show_log(command):
 def cmd_show_help(command):
     pass
 
+populate_troop_library()
+
+
+soldiers1 = []
+for i in range(30):
+    #soldiers1.append(Soldier(name="soldier1", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False))
+    soldiers1.append(Soldier(SoldierType_Library["soldier1"]))
+soldiers2 = []
+for i in range(30):
+    #soldiers2.append(Soldier(name="soldier2", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False))
+    soldiers2.append(Soldier(SoldierType_Library["soldier2"]))
+artillery = []
+for i in range(1):
+    #artillery.append((Soldier(name="mrheal", character="H", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=True, marked=False)))
+    artillery.append(Soldier(SoldierType_Library["soldier3"]))
+
+reg1 = Regiment("TargetPractice", soldiers1, 3)
+reg1.add_soldiers(SoldierType_Library["soldier2"], 30)
+reg1.add_soldiers(SoldierType_Library["soldier3"], 30)
+reg1.add_soldiers(SoldierType_Library["soldier4"], 30)
+reg2 = Regiment("Defenders", soldiers2, 1)
+artyreg = Regiment("Artillery Regiment", artillery, 1)
+
+army1 = Army("a1",[reg1])
+army2 = Army("a2",[reg2,artyreg])
+
+display_both_armies
+
+global round
+round = 1
+#while True:
+#    print("\n---- ROUND "+str(round)+" ----\n")
+#    army_fight(army1, army2)
+
+#    print("army1")
+#    army1.print_army()
+#    print("\narmy2")
+#    army2.print_army()
+#    input()
+#    round += 1
+#    if army1.check_empty() or army2.check_empty():
+#        break
+
+
+
+
 while True:
     if army1.check_empty() or army2.check_empty():
         break
-    army1.print_army()
-    army2.print_army()
+    display_both_armies()
 
     command = input().lower().strip().split()
     # pass turns
@@ -1146,7 +1346,7 @@ while True:
     elif command[0] == 'kill' or command[0] == 'k':
         cmd_kill_soldiers(command)
         continue
-    
+
     elif command[0] == 'range' or command[0] == 'r':
         cmd_range_toggle(command)
         continue
@@ -1154,19 +1354,19 @@ while True:
     elif command[0] == 'morale' or command[0] == 'm':
         cmd_morale_change(command)
         continue
-        
+
     elif command[0] == 'ranks' or command[0] == 'cr':
         cmd_change_ranks(command)
         continue
-        
+
     elif command[0] == 'kss':
         cmd_kss(command)
         continue
-        
+
     elif command[0] == 'add':
         cmd_add(command)
         continue
-        
+
     elif command[0] == 'advantage' or command[0] == 'adv':
         cmd_advantage(command)
         continue
@@ -1180,7 +1380,7 @@ while True:
         army1.temporary_combat_advantage = 1.0
         army2.temporary_combat_advantage = 1.0
         continue
-    
+
     elif command[0] == 'troops':
         cmd_display_troops(command)
         continue
@@ -1192,11 +1392,17 @@ while True:
     elif command[0] == 'log':
         cmd_show_log(command)
         continue
-    
+
     elif command[0] == 'help':
         cmd_show_help(command)
         continue
-
-
-
-# then commands
+    else:
+        print("Unknown command entered : " + command[0])
+# use that system to load an army
+# command to add troops of a type
+# command to show a the armies in a good way
+# command to view the log
+# command to show the help function
+# make army for session
+# test army
+# test for a while
