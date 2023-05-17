@@ -24,7 +24,7 @@ def random_roll_f_dice(f, max_roll = 3, min_roll = 1):
 
 class Soldier:
     def __init__(self, name="soldier", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False):
-        self.name = name
+        self.name = name.lower()
         self.character = character
         self.maxhp = maxhp
         self.hitpoints = maxhp
@@ -56,17 +56,23 @@ class Soldier:
         else:
             return False
 
+    def heal_for(self, dice):
+        self.hitpoints += random_roll_f_dice(dice, max_roll = 3, min_roll = 1)
+        if self.hitpoints > self.maxhp:
+            self.hitpoints = self.maxhp
+
 class Regiment:
     #num_ranks = 1
     #rank = [] # all ranks
     #soldiers = [] # all soldiers
     def __init__(self, name, soldiers, num_ranks):
-        self.name = name
+        self.name = name.lower()
         self.num_ranks = num_ranks
         self.soldiers = soldiers
         self.rank = []
         self.sort_soldiers()
         self.calculate_morale_pool()
+        self.range_toggle = True
     
     def calculate_morale_pool(self):
         self.max_morale = 0
@@ -177,7 +183,8 @@ class Army:
     #regiments = []
     def __init__(self, name, regiments):
         self.regiments = regiments
-        self.name = name
+        self.name = name.lower()
+        self.ranged_enabled = True
         #print("army init:")
         #print(regiments)
         #print(regiments[0].rank)
@@ -253,6 +260,69 @@ class Army:
     def refresh_attacks(self):
         for reg in self.regiments:
             reg.refresh_attacks()
+
+    def activate_healers(self, reg):
+        for soldier in reg.soldiers:
+            if soldier.healer:
+                wounded = []
+                for regiment in self.regiments:
+                    for candidate in regiment.soldiers:
+                        if candidate.hitpoints < candidate.maxhp:
+                            wounded.append(candidate)
+                try:
+                    wounded[random_roll(0, len(wounded) -1)].heal_for(soldier.attack_m)
+                except IndexError:
+                    pass
+
+    def activate_all_healers(self):
+        for reg in self.regiments:
+            self.activate_healers(reg)
+
+
+    def kill_random_soldiers(self, kills, reg, line, name=''):
+        if kills == -1:
+            count = 0
+            for r in self.regiments:
+                for soldier in r.soldiers:
+                    if soldier.name == name or name == '':
+                        soldier.hitpoints = -1
+                        count +=1
+            if count == 0:
+                return -1            
+            else : return 0
+        
+        # build a pool of soldiers to kill
+        killpool = []
+        if reg == -1:
+            for r in self.regiments:
+                for s in r.soldiers:
+                    if s.name == name or name == '':
+                        killpool.append(s)
+        else:
+            if reg > len(self.regiments) : reg = len(self.regiments)
+            if line == -1:
+                for s in self.regiments[reg].soldiers:
+                    if s.name == name or name == '':
+                        killpool.append(s)
+            else:
+                if line > len(self.regiments[reg].rank) :
+                    line = len(self.regiments[reg].rank)
+                for s in self.regiments[reg].rank[line-1]:
+                    if s.name == name or name == '':
+                        killpool.append(s)
+        if len(killpool) <= 0:
+            return -1
+
+        for i in range(kills):
+            if len(killpool) <= 0:
+                break
+            roll = random_roll(min_roll=0, max_roll=len(killpool)-1, byte_count=4)
+            killpool[roll].hitpoints = -1
+            killpool.pop(roll)
+
+        return 0
+
+    
 
 
 def match_soldeirs(line1, line2, n=3):
@@ -451,7 +521,9 @@ def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_pu
             return 1.0
         else:
             neghalf = reg.max_morale / (-2)
-            val = 0.8 - (0.3 (reg.morale_pool / neghalf))
+            val = 0.8 - (0.3 * (reg.morale_pool / neghalf))
+            if val < 0:
+                val = 0
             return val
 
     bigmod *= calculate_morale_mod(bigreg)
@@ -467,7 +539,7 @@ def calculate_melee_fights(reg1, reg2, fights, reg1mod=1.0, reg2mod=1.0, dead_pu
 
     for fight in fights:
         melee_attack(fight[0], fight[1], bigmod, smallmod)
-        melee_attack(fight[1], fight[0], bigmod, smallmod)
+        melee_attack(fight[1], fight[0], smallmod, bigmod)
     
     reg1_soldiers_count = len(reg1.soldiers)
     reg2_soldiers_count = len(reg2.soldiers)
@@ -545,16 +617,17 @@ def ranged_attack(attacker, defender_index, defender_rank, defender_regiment):
             defend_against_attack(random_roll_f_dice(attack_power), attacker.penetration, defender)
     
 def regiment_make_ranged_attacks(regiment, army2):
-    for line in regiment.rank:
-        for soldier in line:
-            if soldier.ranged == True:
-                while soldier.attacks_left > 0:
-                    defender = army2.get_weighed_random_soldier()
-                    ranged_attack(soldier, defender[0], defender[1], army2.regiments[defender[2]])
-                    soldier.attacks_left -= 1
+    if regiment.range_toggle:
+        for line in regiment.rank:
+            for soldier in line:
+                if soldier.ranged == True:
+                    while soldier.attacks_left > 0:
+                        defender = army2.get_weighed_random_soldier()
+                        ranged_attack(soldier, defender[0], defender[1], army2.regiments[defender[2]])
+                        soldier.attacks_left -= 1
 
 def army_make_ranged_attacks(army1, army2):
-    if len(army2.regiments )> 0:
+    if len(army2.regiments )> 0 and army1.ranged_enabled:
         for reg in army1.regiments:
             regiment_make_ranged_attacks(reg, army2)
 
@@ -626,44 +699,357 @@ def army_fight(army1, army2, reporting = True):
     print("\t" + army2.name + " losses " + str(len(ranged_losses[1])))
 
     # here is where the healing goes
-    
+    army1.activate_all_healers()
+    army2.activate_all_healers()
+
+
+
+
 soldiers1 = []
-for i in range(100):
-    soldiers1.append(Soldier(name="soldier", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False))
+for i in range(30):
+    soldiers1.append(Soldier(name="soldier1", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False))
 
 soldiers2 = []
-for i in range(50):
-    soldiers2.append(Soldier("Defender", 'D', 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, True, False, False, False))
+for i in range(30):
+    soldiers2.append(Soldier(name="soldier2", character="S", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=False, marked=False))
 
 artillery = []
 for i in range(1):
-    artillery.append(Soldier("Artillery Cannon", 'C', 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, True, True, False, False))
+    artillery.append((Soldier(name="mrheal", character="H", maxhp=3, attack_ph=1, attack_m=0, defense_ph=1, defense_m=0, attacks=1, penetration=0, aoe=0, morale_save=1, morale_pool_contribution=2, size=1, melee=True, ranged=False, healer=True, marked=False)))
 
 
-reg1 = Regiment("Target Practice", soldiers1, 5)
+reg1 = Regiment("TargetPractice", soldiers1, 1)
 reg2 = Regiment("Defenders", soldiers2, 1)
 artyreg = Regiment("Artillery Regiment", artillery, 1)
-
-army1 = Army("Outnumbered Dude Army",[reg1])
-army2 = Army("Confident Dude Army",[reg2,artyreg])
+global army1
+global army2
+army1 = Army("a1",[reg1])
+army2 = Army("a2",[reg2,artyreg])
 
 army1.print_army()
 army2.print_army()
 
+global round
 round = 1
-while True:
-    print("\n---- ROUND "+str(round)+" ----\n")
-    army_fight(army1, army2)
+#while True:
+#    print("\n---- ROUND "+str(round)+" ----\n")
+#    army_fight(army1, army2)
 
-    print("army1")
-    army1.print_army()
-    print("\narmy2")
-    army2.print_army()
-    input()
-    round += 1
+#    print("army1")
+#    army1.print_army()
+#    print("\narmy2")
+#    army2.print_army()
+#    input()
+#    round += 1
+#    if army1.check_empty() or army2.check_empty():
+#        break
+
+def print_use(command):
+    pass
+
+def use_error(e, cmd):
+    print(e)
+    print_use(cmd)
+
+def army_logic(code, cmd):
+    if code.isnumeric():
+        if int(code) == 1:
+            army = army1
+        elif int(code) == 2:
+            army = army2
+        else:
+            use_error("Invalid army value " + code, cmd)
+            return none
+    else:
+        if army1.name == code:
+            army = army1
+        elif army2.name == code:
+            army = army2
+        else:
+            use_error("Invalid army value " + code, cmd)
+            return None
+    return army
+
+def regiment_logic(code, army, cmd):
+    regiment = -1
+    
+    if not code.isnumeric():
+        for i in range(len(army.regiments)):
+            if army.regiments[i].name == code:
+                regiment = i
+        if regiment == -1:
+            use_error("Invalid regiment value", cmd)
+            return
+    else:
+        regiment = int(code) -1
+    return regiment
+
+def cmd_pass_turns(cmd):
+    turns = 1
+    if len(command) > 1:
+        if command[1].isnumeric():
+            turns = int(command[1])
+        else:
+            use_error("Invalid turns value", 'turn')
+            return
+    for i in range(turns):
+        army_fight(army1,army2)
+        global round
+        round += 1
+        if army1.check_empty() or army2.check_empty():
+            return
+
+def cmd_kill_soldiers(cmd):
+
+    if len(cmd) < 3:
+        use_error("Not enough arguments", 'kill')
+        return
+
+
+    global army1
+    global army2
+    if not cmd[1].isnumeric():
+        use_error("Invalid kills value", 'kill')
+        return
+    if cmd[2].isnumeric():
+        if int(cmd[2]) == 1:
+            army = army1
+        elif int(cmd[2]) == 2:
+            army = army2
+        else:
+            use_error("Invalid army value " + cmd[2], 'kill')
+            return
+    else:
+        if army1.name == cmd[2]:
+            army = army1
+        elif army2.name == cmd[2]:
+            army = army2
+        else:
+            use_error("Invalid army value " + cmd[2], 'kill')
+            return
+    regiment = -1
+    if len(cmd) > 3:
+        if not cmd[3].isnumeric():
+            for i in range(len(army.regiments)):
+                if army.regiments[i].name == cmd[3]:
+                    regiment = i
+            if regiment == -1:
+                use_error("Invalid regiment value", 'kill')
+                return
+        else:
+            regiment = int(cmd[3]) -1
+
+    line = -1
+    if len(cmd) > 4:
+        if not cmd[4].isnumeric():
+            use_error("Invalid line value", 'kill')
+            return
+        else:
+            line = int(cmd[4])
+
+    army.kill_random_soldiers(int(cmd[1]), regiment, line)
+    army.purge_dead()
+
+
+
+def cmd_range_toggle(cmd):
+    global army1
+    global army2
+    newval = True
+
+    # no arguments, then it flips both
+    if len(cmd) == 1:
+        army1.ranged_enabled = not army1.ranged_enabled
+        army2.ranged_enabled = not army2.ranged_enabled
+        return
+    
+    if len(cmd) >=2:
+        if not cmd[1].isnumeric():
+            use_error("Incorrect range toggle value " + cmd[1], 'range_toggle')
+            return
+        if int(cmd[1]) == 1:
+            newval = True
+        elif int(cmd[1]) == 0:
+            newval = False
+        else:
+            use_error("Incorrect range toggle value " + cmd[1], 'range_toggle')
+            return
+    
+    if len(cmd) == 2:
+        army1.ranged_enabled = newval
+        army2.ranged_enabled = newval
+        return
+    if len(cmd) >= 3:
+        army=army_logic(cmd[2], "range_toggle")
+        if army is None : return
+    reg = -1
+    if len(cmd) >=4:
+        reg = regiment_logic(cmd[3], army, "range_toggle")
+        if reg is None : return
+    
+    if reg == -1:
+        army.ranged_enabled = newval
+    else:
+        army.regiments[reg].ranged_enabled = newval
+
+
+def cmd_morale_change(command):
+    if len(command) < 4:
+        use_error("Not enough arguments", 'morale_change')
+        return
+    army = army_logic(command[1], 'morale_change')
+    regiment = regiment_logic(command[2], army, 'morale_change')
+    if army is None or regiment is None:
+        return
+    
+    try:
+        army.regiments[regiment].morale_pool += int(command[3])
+    except ValueError:
+        use_error("Morale change is not numeric", 'morale_change')
+        return 
+
+
+def cmd_change_ranks(command):
+    if len(command) < 4:
+        use_error("Not enough arguments", 'change_ranks')
+        return
+    army = army_logic(command[1], 'change_ranks')
+    regiment = regiment_logic(command[2], army, 'change_ranks')
+    if army is None or regiment is None:
+        return
+    
+    if not command[3].isnumeric():
+        use_error("rank depth is not numeric " + command[3], 'change_ranks')
+        return
+    elif int(command[3]) <= 0:
+        use_error("rank depth cannot be 0", 'change_ranks')
+        return
+    else:
+        new_ranks = int(command[3])
+        reg = army.regiments[regiment]
+        if new_ranks > len(reg.soldiers):
+            new_ranks = len(reg.soldiers)
+        reg.num_ranks = new_ranks
+        reg.sort_soldiers()
+
+
+def cmd_kss(command):
+    if len(command) < 4:
+        use_error("Missing arguments ", 'kss')
+        return
+    soldier_name = command[1]
+    try:
+        kills = int(command[2])
+    except ValueError:
+        use_error("Non numeric kill count", 'kss')
+        return
+    army = army_logic(command[3], 'kss')
+    if army is None : return
+    regiment = -1
+    if len(command) >= 5:
+        regiment = regiment_logic(command[4], army, 'kss')
+        if regiment is None : return
+    line = -1
+    if len(command) >= 6:
+        try:
+            line = int(command[5])
+        except ValueError:
+            use_error("Non numeric rank chosen", 'kss')
+            return
+    ret = army.kill_random_soldiers(kills, regiment, line, name=soldier_name)
+    if ret == -1:
+        use_error("No soldier with name " + command[1] + " found!", None)
+    army.purge_dead()
+
+
+def cmd_add(command):
+    pass
+
+def cmd_advantage(command):
+    pass
+
+def cmd_swap_regiments(command):
+    pass
+
+def cmd_assault(command):
+    pass
+
+def cmd_display_troops(command):
+    pass
+
+def cmd_display_army(command):
+    pass
+
+def cmd_show_log(command):
+    pass
+
+def cmd_show_help(command):
+    pass
+
+while True:
     if army1.check_empty() or army2.check_empty():
         break
+    army1.print_army()
+    army2.print_army()
+
+    command = input().lower().strip().split()
+    # pass turns
+    if len(command) == 0 or command[0] == 't' or command[0] == 'turn':
+        cmd_pass_turns(command)
+        continue
+
+    elif command[0] == 'kill' or command[0] == 'k':
+        cmd_kill_soldiers(command)
+        continue
+    
+    elif command[0] == 'range' or command[0] == 'r':
+        cmd_range_toggle(command)
+        continue
+
+    elif command[0] == 'morale' or command[0] == 'm':
+        cmd_morale_change(command)
+        continue
+        
+    elif command[0] == 'ranks' or command[0] == 'cr':
+        cmd_change_ranks(command)
+        continue
+        
+    elif command[0] == 'kss':
+        cmd_kss(command)
+        continue
+        
+    elif command[0] == 'add':
+        cmd_add(command)
+        continue
+        
+    elif command[0] == 'advantage' or command[0] == 'adv':
+        cmd_advantage(command)
+        continue
+
+    elif command[0] == 'swap':
+        cmd_swap_regiments(command)
+        continue
+
+    elif command[0] == 'assault' or command[0] == 'ass':
+        cmd_assault(command)
+        continue
+    
+    elif command[0] == 'troops':
+        cmd_display_troops(command)
+        continue
+
+    elif command[0] == 'show':
+        cmd_display_army(command)
+        continue
+
+    elif command[0] == 'log':
+        cmd_show_log(command)
+        continue
+    
+    elif command[0] == 'help':
+        cmd_show_help(command)
+        continue
 
 
-# then heal spells.
+
 # then commands

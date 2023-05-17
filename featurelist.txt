@@ -45,15 +45,82 @@ A soldier dying will reduce the morale pool by the proportion that they contribu
 
 There are a number of user actions to do during the simulation.
 User actions:
-  go forward n steps
-  kill n soldiers in a regiment
-    asks for line, or is random
-  force ranged
-  add/minus to morale
-  change numer of lines in regiment
-  kill specific soldiers
-  add specific soldiers
-  list troops ( maybe get some cool ascii?)
-  one turn advantage
-  reposition regiments
-  special attack (one regiment vs another)
+
+h help list commands and parameters
+usage:
+	help all
+	help t
+
+t turn go forward n steps
+	n = steps, default 1	
+
+usage: t 3
+
+k kill kill n soldiers in a regiment
+	n = soldiers to kill (-1 is all)
+	a = army
+	r = regiment default random
+	l = line default random
+
+usage: kill 10 1 r1 l1
+
+r range enable/disable range
+
+usage : range 0
+
+
+m morale add/minus to morale
+	a army
+	morale
+useage: morale 1 -10
+
+cl lines number of lines in regiment
+	army
+	regiment
+	newlines
+use: cl 1 1 3
+
+kss specific soldiers
+	soldier name
+	number (-1 is all, otherwise its picked randomly)
+	army
+	regiment( default to all)
+	line (default to all)
+use: kss DrOz -1 1 1 1
+
+add add specific soldiers
+	number
+	soldier name
+	army
+	regiment
+use: add 20 bobbies 1 1
+
+
+advantage, adv one turn advantage
+	advantage ( float, can be less than one or more than one)
+	army
+use: advantage 1.2 1
+
+
+swap regiments
+	army
+	reg1
+	reg2
+use: reposition 1 1 2
+
+assault special attack (one regiment vs another)
+	reg1
+	reg2
+use assault reg1 reg2
+
+
+
+troops lists troops ( maybe get some cool ascii?)
+
+use: troops
+
+show display army
+use: show
+
+log display last log
+use log
