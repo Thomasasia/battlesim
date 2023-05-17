@@ -71,8 +71,9 @@ usage : range 0
 
 m morale add/minus to morale
 	a army
+	regiment
 	morale
-useage: morale 1 -10
+useage: morale 1 1 -10
 
 cl lines number of lines in regiment
 	army

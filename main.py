@@ -1,5 +1,6 @@
 import random
 
+
 # much faster than urandom, good for integer randomness
 def random_bytes(n):
     return random.getrandbits(8 * n).to_bytes(n, 'big')
@@ -185,6 +186,7 @@ class Army:
         self.regiments = regiments
         self.name = name.lower()
         self.ranged_enabled = True
+        self.temporary_combat_advantage = 1.0
         #print("army init:")
         #print(regiments)
         #print(regiments[0].rank)
@@ -244,6 +246,7 @@ class Army:
         for reg in self.regiments:
             for soldier in reg.soldiers:
                 return False
+        print(len(self.regiments))
         return True
 
     def purge_dead(self):
@@ -257,6 +260,7 @@ class Army:
                 self.regiments.remove(reg)
 
         return losses
+
     def refresh_attacks(self):
         for reg in self.regiments:
             reg.refresh_attacks()
@@ -322,7 +326,11 @@ class Army:
 
         return 0
 
-    
+    def get_regiment_position(self, reg):
+        for i in range(len(self.regiments) - 1):
+            if regiments[i] == reg:
+                return i
+        return -1
 
 
 def match_soldeirs(line1, line2, n=3):
@@ -638,7 +646,7 @@ def army_fight(army1, army2, reporting = True):
         if s.hitpoints <= 0:
             raise Exception("Dead soldiers fighting")
     fights = match_soldeirs(army1.regiments[0].rank[0], army2.regiments[0].rank[0])
-    losses = calculate_melee_fights(army1.regiments[0], army2.regiments[0], fights, reporting = True)
+    losses = calculate_melee_fights(army1.regiments[0], army2.regiments[0], fights, reporting = True, reg1mod = army1.temporary_combat_advantage, reg2mod = army2.temporary_combat_advantage)
 
     def breakthrough_loop(a1, a2):
         # loop for multiple breakthroughs
@@ -672,7 +680,7 @@ def army_fight(army1, army2, reporting = True):
 
 
                 fights = match_soldeirs(a1.regiments[0].rank[0], a2.regiments[0].rank[0])
-                l = calculate_melee_fights(a1.regiments[0], a2.regiments[0], fights, reporting = reporting, attacks_refreshment = False)
+                l = calculate_melee_fights(a1.regiments[0], a2.regiments[0], fights, reporting = reporting, attacks_refreshment = False, reg1mod = army1.temporary_combat_advantage, reg2mod = army2.temporary_combat_advantage)
                 losses[0] += l[0]
                 losses[1] += l[1]
 
@@ -751,6 +759,19 @@ def use_error(e, cmd):
     print(e)
     print_use(cmd)
 
+def bool_logic(code, cmd):
+    if code.lower() == 'true':
+        return True
+    if code.lower() == 'false':
+        return False
+    if code.isdecimal():
+        if int(code) == 0:
+            return False
+        if int(code) == 1:
+            return True
+    use_error("Incorrect boolean value " + code, cmd)
+    return None
+
 def army_logic(code, cmd):
     if code.isnumeric():
         if int(code) == 1:
@@ -771,6 +792,8 @@ def army_logic(code, cmd):
     return army
 
 def regiment_logic(code, army, cmd):
+    if army is None:
+        return None
     regiment = -1
     
     if not code.isnumeric():
@@ -959,6 +982,7 @@ def cmd_kss(command):
     ret = army.kill_random_soldiers(kills, regiment, line, name=soldier_name)
     if ret == -1:
         use_error("No soldier with name " + command[1] + " found!", None)
+        return
     army.purge_dead()
 
 
@@ -966,13 +990,132 @@ def cmd_add(command):
     pass
 
 def cmd_advantage(command):
-    pass
+    command_name = 'advantage'
+    if len(command) < 3:
+        use_error("Not enough arguments" , command_name)
+        return
+    army = army_logic(command[1], command_name)
+    if army is None : return
+    try:
+        adv = float(command[2])
+    except ValueError:
+        use_error("Float needed for advantage " + command[2], command_name)
+        return
+    
+    army.temporary_combat_advantage = adv
 
 def cmd_swap_regiments(command):
-    pass
+    if len(command) < 4:
+        use_error("Not enough arguments", 'swap')
+        return
+    army = army_logic(command[1], 'swap')
+    reg1 = regiment_logic(command[2], army, 'swap')
+    reg2 = regiment_logic(command[3], army, 'swap')
+    if army is None:
+        use_error("Invalid army name " + command[1], 'swap')
+        return
+    if reg1 is None:
+        use_error("Invalid reg1 name " + command[2], 'swap')
+        return
+    if reg2 is None:
+        use_error("Invalid reg2 name " + command[3], 'swap')
+        return
+
+    temp = army.regiments[reg1]
+    army.regiments[reg1] = army.regiments[reg2]
+    army.regiments[reg2] = temp
+
+
 
 def cmd_assault(command):
-    pass
+    command_name = 'assault'
+    if len(command) < 3:
+        use_error("Incorrect number of arguments ", command_name)
+        return
+    global army1
+    global army2
+    reg1 = army1.regiments[regiment_logic(command[1], army1, command_name)]
+    reg2 = army2.regiments[regiment_logic(command[2], army2, command_name)]
+    
+    if reg1 is None: return
+    if reg2 is None: return
+
+    ranged_enabled = False
+    if len(command) > 3:
+        range_enabled = bool_logic(command[3])
+        if range_enabled is None : return
+
+    reg1.refresh_attacks()
+    reg2.refresh_attacks()    
+
+    fights = match_soldeirs(reg1.rank[0], reg2.rank[0])
+    losses = calculate_melee_fights(reg1, reg2, fights, reporting = True, reg1mod = army1.temporary_combat_advantage, reg2mod = army2.temporary_combat_advantage)
+
+    def breakthrough_loop(r1, r2):
+        # loop for multiple breakthroughs
+        while True:
+            breakthrough = 0
+            if len(r1.rank[0]) == 0:
+                r1.rank.pop(0)
+                breakthrough += 1
+            if len(r2.rank[0]) == 0:
+                r2.rank.pop(0)
+                breakthrough += 2
+            
+            if len(r1.soldiers) == 0:
+                army1.regiments.remove(r1)
+                break
+            if len(r2.soldiers) == 0:
+                army2.regiments.remove(r2)
+                break
+            
+            if breakthrough > 0:
+                if reporting:
+                    if breakthrough == 1:
+                        print(r2.name + " Breaks through " + r1.name + "'s Front line, and continues forward.")
+                    elif breakthrough == 2:
+                            print(r1.name + " Breaks through " + r2.name + "'s Front line, and continues forward.")
+                    elif breakthrough == 3:
+                            print(r1.name + "'s and " + r2.name + "'s frontlines both dissolve, and the fresh second lines charge forward.")
+
+
+
+
+                fights = match_soldeirs(r1.rank[0], r2.rank[0])
+                l = calculate_melee_fights(r1, r2, fights, reporting = reporting, attacks_refreshment = False, reg1mod = army1.temporary_combat_advantage, reg2mod = army2.temporary_combat_advantage)
+                losses[0] += l[0]
+                losses[1] += l[1]
+
+            else:
+                break
+        
+    breakthrough_loop(reg1, reg2)
+
+    losses[0] += army1.purge_dead()
+    losses[1] += army2.purge_dead()
+    print("Melee losses: ")
+    print("\t" + army1.name + " loses " + str(len(losses[0])))
+    print("\t" + army2.name + " losses " + str(len(losses[1])))
+    
+    if ranged_enabled:
+        # ranged attacks
+        regiment_make_ranged_attacks(reg1, army2)
+        regiment_make_ranged_attacks(reg2, army1)
+
+        ranged_losses = [army1.purge_dead(), army2.purge_dead()]
+
+        print("Ranged losses: ")
+        print("\t" + army1.name + " loses " + str(len(ranged_losses[0])))
+        print("\t" + army2.name + " losses " + str(len(ranged_losses[1])))
+
+    # here is where the healing goes
+    army1.activate_healers(reg1)
+    army2.activate_healers(reg2)
+
+
+
+
+
 
 def cmd_display_troops(command):
     pass
@@ -996,6 +1139,8 @@ while True:
     # pass turns
     if len(command) == 0 or command[0] == 't' or command[0] == 'turn':
         cmd_pass_turns(command)
+        army1.temporary_combat_advantage = 1.0
+        army2.temporary_combat_advantage = 1.0
         continue
 
     elif command[0] == 'kill' or command[0] == 'k':
@@ -1032,6 +1177,8 @@ while True:
 
     elif command[0] == 'assault' or command[0] == 'ass':
         cmd_assault(command)
+        army1.temporary_combat_advantage = 1.0
+        army2.temporary_combat_advantage = 1.0
         continue
     
     elif command[0] == 'troops':
