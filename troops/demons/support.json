@@ -1,0 +1,87 @@
+[
+    {
+        "name" : "fell_wizard",
+        "character" : "؏",
+        "maxhp" : 10,
+        "attack_ph" : 1,
+        "attack_m" : 2,
+        "defense_ph" : 1,
+        "defense_m" : 2,
+        "attacks" : 1,
+        "penetration" : 0,
+        "aoe" : 0,
+        "morale_save" : 1,
+        "morale_pool_contribution" : 2,
+        "size" : 1,
+        "melee" : false,
+        "ranged" : true,
+        "healer" : false,
+        "marked" : false,
+        "color"  : "light_cyan"
+
+    },
+    {
+        "name" : "dark_priest",
+        "character" : "۩",
+        "maxhp" : 9,
+        "attack_ph" : 1,
+        "attack_m" : 3,
+        "defense_ph" : 1,
+        "defense_m" : 3,
+        "attacks" : 1,
+        "penetration" : 0,
+        "aoe" : 0,
+        "morale_save" : 1,
+        "morale_pool_contribution" : 2,
+        "size" : 1,
+        "melee" : false,
+        "ranged" : true,
+        "healer" : true,
+        "marked" : false,
+        "color"  : "magenta"
+
+    },
+    {
+        "name" : "flame_launcher",
+        "character" : "֍",
+        "maxhp" : 15,
+        "attack_ph" : 1,
+        "attack_m" : 2,
+        "defense_ph" : 1,
+        "defense_m" : 1,
+        "attacks" : 1,
+        "penetration" : -1,
+        "aoe" : 1,
+        "morale_save" : 1,
+        "morale_pool_contribution" : 2,
+        "size" : 3,
+        "melee" : false,
+        "ranged" : true,
+        "healer" : false,
+        "marked" : false,
+        "color"  : "light_yellow"
+
+    },
+    {
+        "name" : "corpse_caster",
+        "character" : "౿",
+        "maxhp" : 15,
+        "attack_ph" : 2,
+        "attack_m" : 1,
+        "defense_ph" : 1,
+        "defense_m" : 1,
+        "attacks" : 1,
+        "penetration" : 1,
+        "aoe" : 1,
+        "morale_save" : 1,
+        "morale_pool_contribution" : 2,
+        "size" : 3,
+        "melee" : false,
+        "ranged" : true,
+        "healer" : false,
+        "marked" : false,
+        "color"  : "green"
+
+    }
+
+]

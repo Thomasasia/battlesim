@@ -915,12 +915,20 @@ def army_fight(army1, army2, reporting = True):
     def breakthrough_loop(a1, a2):
         # loop for multiple breakthroughs
         while True:
+            if len(a1.regiments) == 0 or len(a2.regiments) == 0:
+                break
             breakthrough = 0
             if len(a1.regiments[0].rank[0]) == 0:
                 a1.regiments[0].rank.pop(0)
+                if len (a1.regiments[0].rank) == 0 :
+                    a1.regiments.pop(0)
+                    break
                 breakthrough += 1
             if len(a2.regiments[0].rank[0]) == 0:
                 a2.regiments[0].rank.pop(0)
+                if len (a2.regiments[0].rank) == 0 : 
+                    a2.regiments.pop(0)
+                    break
                 breakthrough += 2
 
             if len(a1.regiments[0].soldiers) == 0:
@@ -974,9 +982,9 @@ def army_fight(army1, army2, reporting = True):
     else:
         army1_rankdiff = army1_oldrank - len(reg1.rank)
     if not reg2 in army2.regiments:
-        army2_rankdiff = army1_oldrank
+        army2_rankdiff = army2_oldrank
     else:
-        army2_rankdiff = army1_oldrank - len(reg2.rank)
+        army2_rankdiff = army2_oldrank - len(reg2.rank)
 
     melee_message = "In the melee, " + army1.name + " loses " + str(army1.loss_count()) + " and " + str(army1_rankdiff) + " ranks have fallen. " + army2.name + " loses " + str(army2.loss_count())+ " and " + str(army2_rankdiff) + " ranks have fallen.\n"
     log_push_battle_message(melee_message, losses)

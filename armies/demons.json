@@ -1,26 +1,65 @@
 {
-    "name" : "template_army",
+    "name" : "demons",
     "regiments" : [
         {
-            "name" : "front_line",
-            "num_ranks" : 3,
+            "name" : "mane_reg",
+            "num_ranks" : 5,
             "soldiers" : [
-                {"name" : "testsoldier1", "count" : 30},
-                {"name" : "testsoldier2", "count" : 30}
+                {"name" : "mane", "count" : 1000},
+                {"name" : "glabrezu", "count" : 15}
             ]
         },
         {
-            "name" : "archers",
-            "num_ranks" : 3,
+            "name" : "dreches_reg",
+            "num_ranks" : 4,
             "soldiers" : [
-                {"name" : "testarcher", "count" : 30}
+                {"name" : "dretch", "count" : 400},
+                {"name" : "barlgura", "count" : 30}
             ]
         },
         {
-            "name" : "back_line",
+            "name" : "hezrou_reg",
+            "num_ranks" : 2,
+            "soldiers" : [
+                {"name" : "hezrou", "count" : 150},
+                {"name" : "marilith", "count" : 10}
+            ]
+        },
+        {
+            "name" : "nalfs_reg",
+            "num_ranks" : 4,
+            "soldiers" : [
+                {"name" : "yochlol", "count" : 3},
+                {"name" : "nalf", "count" : 150},
+                {"name" : "chasme", "count" : 150}
+            ]
+        },
+        {
+            "name" : "balor_legion",
+            "num_ranks" : 2,
+            "soldiers" : [
+                {"name" : "balor", "count" : 40},
+                {"name" : "demon_lord", "count" : 1}
+            ]
+        },
+        {
+            "name" : "fell_mages",
             "num_ranks" : 3,
             "soldiers" : [
-                {"name" : "testhealer", "count" : 3}
+                {"name" : "fell_wizard", "count" : 10},
+                {"name" : "dark_priest", "count" : 10},
+                {"name" : "mane", "count" : 30},
+                {"name" : "dretch", "count" : 10}
+            ]
+        },
+        {
+            "name" : "dark_artillery",
+            "num_ranks" : 2,
+            "soldiers" : [
+                {"name" : "mane", "count" : 30},
+                {"name" : "dretch", "count" : 10},
+                {"name" : "flame_launcher", "count" : 4},
+                {"name" : "corpse_caster", "count" : 4}
             ]
         }
     ]
