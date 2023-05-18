@@ -365,6 +365,9 @@ class Army:
                 print(r)
             print()
         print()
+        if count:
+            print("Total "+ str(self.count_troops()) + " troops")
+            print()
 
     def get_size_of_largest_rank(self):
         max = 0
@@ -1769,4 +1772,3 @@ while True:
     except Exception as e:
         print(colored("Ran into an error!", "red"))
         print(e)
-        raise(e)

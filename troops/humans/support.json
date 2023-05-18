@@ -76,7 +76,7 @@
         "melee" : true,
         "ranged" : true,
         "healer" : false,
-        "marked" : false,
+        "marked" : true,
         "color"  : "light_blue"
     },
     {
@@ -96,7 +96,7 @@
         "melee" : true,
         "ranged" : true,
         "healer" : true,
-        "marked" : false,
+        "marked" : true,
         "color"  : "white"
     }
 ]
