@@ -1680,6 +1680,8 @@ log_new_turn()
 while True:
     try:
         if army1.check_empty() or army2.check_empty():
+            army1.print_army(count = True)
+            army2.print_army(count = True)
             print()
             break
         
@@ -1693,7 +1695,7 @@ while True:
             except IndexError:
                 pass
 
-        print(colored("<👉😎👈>", "light_red"), end="")
+        print(colored("<{}👉😎👈>".format(round), "light_red"), end="")
         command = input().lower().strip().split()
         # pass turns
         if len(command) == 0 or command[0] == 't' or command[0] == 'turn':
@@ -1768,8 +1770,3 @@ while True:
         print(colored("Ran into an error!", "red"))
         print(e)
         raise(e)
-
-# command to show the help function
-# make army for session
-# test army
-# test for a while
