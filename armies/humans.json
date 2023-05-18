@@ -1,0 +1,55 @@
+{
+    "name" : "players",
+    "regiments" : [
+        {
+            "name" : "infantry",
+            "num_ranks" : 4,
+            "soldiers" : [
+                {"name" : "veteran", "count" : 200},
+                {"name" : "antimage", "count" : 50},
+                {"name" : "defender", "count" : 50},
+                {"name" : "peasant", "count" : 50},
+                {"name" : "commander", "count" : 1},
+                {"name" : "sergeant", "count" : 5},
+                {"name" : "shapeshifter", "count" : 10},
+                {"name" : "demoknight", "count" : 1}
+            ]
+        },
+        {
+            "name" : "archers",
+            "num_ranks" : 3,
+            "soldiers" : [
+                {"name" : "levy_archer", "count" : 75},
+                {"name" : "vet_archer", "count" : 25},
+                {"name" : "vet_crossbow", "count" : 25},
+                {"name" : "musketeer", "count" : 25},
+                {"name" : "sergeant", "count" : 3},
+                {"name" : "commander", "count" : 1}
+            ]
+        },
+        {
+            "name" : "support",
+            "num_ranks" : 3,
+            "soldiers" : [
+                {"name" : "mage", "count" : 10},
+                {"name" : "priest", "count" : 10},
+                {"name" : "staff", "count" : 10},
+                {"name" : "mortar", "count" : 2},
+                {"name" : "archmagus", "count" : 1},
+                {"name" : "high_priestess", "count" : 1},
+                {"name" : "gauntlet_leader", "count" : 1},
+                {"name" : "supreme_commander", "count" : 1},
+                {"name" : "durasteel_guard", "count" : 10}
+            ]
+        },
+        {
+            "name" : "cav",
+            "num_ranks" : 2,
+            "soldiers" : [
+                {"name" : "heavy_cav", "count" : 50},
+                {"name" : "paladin_cav", "count" : 25},
+                {"name" : "paladin_cav_champion", "count" : 1}
+            ]
+        }
+    ]
+}

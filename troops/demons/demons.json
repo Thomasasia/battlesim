@@ -1,7 +1,7 @@
 [
     {
-        "name" : "soldier1",
-        "character" : "Ù",
+        "name" : "soldier3",
+        "character" : "Ħ",
         "maxhp" : 1,
         "attack_ph" : 1,
         "attack_m" : 0,
@@ -17,11 +17,12 @@
         "ranged" : false,
         "healer" : false,
         "marked" : false,
-        "color"  : "red"
+        "color"  : "blue"
+
     },
     {
-        "name" : "soldier2",
-        "character" : "A",
+        "name" : "soldier4",
+        "character" : "љ",
         "maxhp" : 1,
         "attack_ph" : 1,
         "attack_m" : 0,
@@ -37,7 +38,7 @@
         "ranged" : false,
         "healer" : false,
         "marked" : false,
-        "color"  : "green"
+        "color"  : "light_grey"
 
     }
 

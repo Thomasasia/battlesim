@@ -1,0 +1,27 @@
+{
+    "name" : "template_army",
+    "regiments" : [
+        {
+            "name" : "front_line",
+            "num_ranks" : 3,
+            "soldiers" : [
+                {"name" : "testsoldier1", "count" : 30},
+                {"name" : "testsoldier2", "count" : 30}
+            ]
+        },
+        {
+            "name" : "archers",
+            "num_ranks" : 3,
+            "soldiers" : [
+                {"name" : "testarcher", "count" : 30}
+            ]
+        },
+        {
+            "name" : "back_line",
+            "num_ranks" : 3,
+            "soldiers" : [
+                {"name" : "testhealer", "count" : 3}
+            ]
+        }
+    ]
+}
